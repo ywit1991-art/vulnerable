@@ -43,7 +43,7 @@ export default function MyRecordsPage() {
         setRecords(data as any);
         
         if (historyPerson) {
-          const updatedPerson = data.find(p => p.id === historyPerson.id);
+          const updatedPerson = data.find((p: any) => p.id === historyPerson.id);
           if (updatedPerson) setHistoryPerson(updatedPerson);
         }
       }

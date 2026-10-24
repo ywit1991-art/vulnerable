@@ -18,7 +18,6 @@ export default function PublicHomePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   
-  // State เริ่มต้น (ค่าว่าง)
   const [stats, setStats] = useState({ total: 0, typeCounts: {} as Record<VulnType, number> });
   const [insights, setInsights] = useState({ overlap: 0, pending: 0, livesAlone: 0 });
   
@@ -32,39 +31,32 @@ export default function PublicHomePage() {
 
     const fetchData = async () => {
       try {
-        // 👇 ดึงข้อมูลจาก 3 ตารางหลัก 👇
         const { data: vulnerableData } = await supabase().from('vulnerable_persons').select('*');
         const { data: registryData } = await supabase().from('registry_persons').select('national_id, village_no');
         const { data: interventions } = await supabase().from('interventions').select('*');
         
         if (vulnerableData && vulnerableData.length > 0) {
-          
-          // 1. คำนวณยอดรวมและประเภท
           const typeCounts = {} as Record<VulnType, number>;
           (Object.keys(VULN) as VulnType[]).forEach(key => {
             typeCounts[key] = vulnerableData.filter((p: any) => p.vulnerabilities?.includes(key)).length;
           });
           setStats({ total: vulnerableData.length, typeCounts });
 
-          // 2. คำนวณ Insights
           const overlapCount = vulnerableData.filter((p: any) => p.vulnerabilities?.length > 1).length;
-          
-          // 👇 เช็คว่าใครได้รับความช่วยเหลือแล้วบ้าง จากตาราง interventions 👇
-          const assistedIds = new Set(interventions?.map(i => i.person_id) || []);
+          const assistedIds = new Set(interventions?.map((i: any) => i.person_id) || []);
           const assistedCount = vulnerableData.filter((p: any) => assistedIds.has(p.id)).length;
           const pendingCount = vulnerableData.length - assistedCount;
           const livesAloneCount = vulnerableData.filter((p: any) => p.lives_alone === true || p.note?.includes('อยู่คนเดียว')).length;
           
           setInsights({ overlap: overlapCount, pending: pendingCount, livesAlone: livesAloneCount });
 
-          // 👇 อัปเดตกราฟสถานะ (จากข้อมูลจริง) 👇
           setStatusData([
             { name: 'ช่วยเหลือแล้ว', value: assistedCount, color: '#EC4899' },
             { name: 'รอดำเนินการ', value: pendingCount, color: '#0EA5E9' },
           ].filter(item => item.value > 0));
 
-          // 3. คำนวณกราฟหมู่บ้าน
-          const villagesData = Array.from({ length: 14 }).map((_, i) => {
+          // 👇 แก้ไข Type ที่นี่แล้ว (เติม : any และ : number) 👇
+          const villagesData = Array.from({ length: 14 }).map((_: any, i: number) => {
             const moo = i + 1;
             const mooData = vulnerableData.filter((v: any) => {
               const regInfo = registryData?.find((r: any) => r.national_id === v.national_id);
@@ -84,7 +76,6 @@ export default function PublicHomePage() {
           setMapVillages(villagesData); 
           setBarData(villagesData.filter(v => v.count > 0));
 
-          // 4. คำนวณกราฟอายุ
           const currentYear = new Date().getFullYear();
           const getAge = (birth: string) => birth ? currentYear - new Date(birth).getFullYear() : 0;
           const ageGroups = [
@@ -100,7 +91,6 @@ export default function PublicHomePage() {
           setAgeData(ageStats.filter(g => g.value > 0));
 
         } else {
-          // ถ้าฐานข้อมูลว่างจริงๆ ให้แสดง 0 ทั้งหมด
           setMapVillages(Array.from({ length: 14 }).map((_, i) => ({ id: i+1, name: `หมู่ ${i+1}`, count: 0, color: '#FDF2F8' })));
           setStatusData([{ name: 'ยังไม่มีข้อมูล', value: 1, color: '#e2e8f0' }]);
         }
@@ -163,10 +153,8 @@ export default function PublicHomePage() {
           ))}
         </motion.div>
 
-        {/* 👇 การ์ด Insights 👇 */}
+        {/* การ์ด Insights (แบ่งซ้าย-ขวา) */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-          
-          {/* การ์ดใบที่ 1 (เต็มความกว้างบนมือถือ) */}
           <div className="col-span-2 md:col-span-1 bg-slate-800 rounded-2xl p-4 text-white shadow-md flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
               <AlertCircle className="w-5 h-5 text-pink-400" />
@@ -176,29 +164,24 @@ export default function PublicHomePage() {
               <h3 className="text-xl md:text-2xl font-bold leading-none">{insights.pending} <span className="text-sm font-normal">ราย</span></h3>
             </div>
           </div>
-
-          {/* การ์ดใบที่ 2 (แบ่งซ้าย) */}
           <div className="bg-white rounded-2xl p-3 md:p-4 shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center text-center sm:text-left gap-2 sm:gap-4">
             <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5 text-pink-500" />
             </div>
             <div className="flex flex-col justify-center min-w-0">
-              <p className="text-slate-500 text-[10px] md:text-xs mb-0.5 leading-tight">ความเปราะบางทับซ้อน (2+ ด้าน)</p>
+              <p className="text-slate-500 text-[10px] md:text-xs mb-0.5 leading-tight truncate">ความเปราะบางทับซ้อน (2+ ด้าน)</p>
               <h3 className="text-lg md:text-2xl font-bold text-slate-800 leading-none">{insights.overlap} <span className="text-[10px] md:text-sm font-normal text-slate-400">ราย</span></h3>
             </div>
           </div>
-
-          {/* การ์ดใบที่ 3 (แบ่งขวา) */}
           <div className="bg-white rounded-2xl p-3 md:p-4 shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center text-center sm:text-left gap-2 sm:gap-4">
             <div className="w-10 h-10 rounded-full bg-sky-50 flex items-center justify-center shrink-0">
               <UserCheck className="w-5 h-5 text-sky-500" />
             </div>
             <div className="flex flex-col justify-center min-w-0">
-              <p className="text-slate-500 text-[10px] md:text-xs mb-0.5 leading-tight">ผู้ใช้ชีวิตลำพัง (กลุ่มเสี่ยงสูง)</p>
+              <p className="text-slate-500 text-[10px] md:text-xs mb-0.5 leading-tight truncate">ผู้ใช้ชีวิตลำพัง (กลุ่มเสี่ยงสูง)</p>
               <h3 className="text-lg md:text-2xl font-bold text-slate-800 leading-none">{insights.livesAlone} <span className="text-[10px] md:text-sm font-normal text-slate-400">ราย</span></h3>
             </div>
           </div>
-
         </motion.div>
 
         {/* กริดกราฟ 2x2 */}
