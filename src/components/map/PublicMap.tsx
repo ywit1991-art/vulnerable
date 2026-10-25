@@ -55,7 +55,7 @@ export default function PublicMap({ villages }: { villages: any[] }) {
   const getStyle = () => {
     return {
       fillColor: '#FCE7F3', 
-      weight: 3,            
+      weight: 1,            
       opacity: 1,
       color: '#0EA5E9',     
       fillOpacity: 0.7,     
