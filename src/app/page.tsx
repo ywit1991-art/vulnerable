@@ -242,12 +242,17 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-          <div className="bg-white p-2 md:p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col h-[300px] md:h-[400px]">
+          {/* 👇 เปลี่ยนเป็น motion.div และใส่ Hover Effect 👇 */}
+          <motion.div 
+            whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0,0,0,0.08)" }}
+            transition={{ duration: 0.3 }}
+            className="bg-white p-2 md:p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col h-[300px] md:h-[400px]"
+          >
             <h2 className="font-bold text-sm md:text-base text-slate-800 flex items-center gap-2 px-1 mb-2"><span className="text-pink-500">📍</span> แผนที่ความหนาแน่น</h2>
             <div className="relative w-full flex-1 rounded-xl overflow-hidden border border-slate-100">
               <PublicMap villages={villageData} />
             </div>
-          </div>
+          </motion.div>
           <div className="h-[300px] md:h-[400px]"><HouseholdBarChart data={villageData} /></div>
         </div>
 

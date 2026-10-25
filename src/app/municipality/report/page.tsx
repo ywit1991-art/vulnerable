@@ -5,7 +5,7 @@ import Navbar from '@/components/ui/Navbar';
 import { supabase } from '@/lib/supabase/client';
 import { Filter, RotateCcw, TrendingUp, Package, Users, Printer } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import LoadingScreen from '@/components/ui/LoadingScreen'; // 👈 เพิ่มบรรทัดนี้
+import LoadingScreen from '@/components/ui/LoadingScreen';
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -263,15 +263,17 @@ export default function MunicipalityReportPage() {
               ) : <div className="flex-1 flex items-center justify-center text-slate-400">ไม่มีข้อมูล</div>}
             </div>
 
+            {/* 👇 กราฟสิ่งของ 👇 */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[400px]">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
                   {chartMode === 'items' ? <Package className="w-5 h-5 text-pink-500" /> : <TrendingUp className="w-5 h-5 text-amber-500" />} 
                   {chartMode === 'items' ? 'จำนวนสิ่งของที่จ่ายไป' : 'จำนวนเงินที่จ่ายไป'}
                 </h3>
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button onClick={() => setChartMode('items')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${chartMode === 'items' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500'}`}>สิ่งของ</button>
-                  <button onClick={() => setChartMode('money')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${chartMode === 'money' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500'}`}>เงิน</button>
+                {/* 👇 เพิ่ม whitespace-nowrap ให้ปุ่มไม่ตัดคำ 👇 */}
+                <div className="flex w-full sm:w-auto bg-slate-100 p-1 rounded-xl shrink-0">
+                  <button onClick={() => setChartMode('items')} className={`flex-1 sm:flex-none whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${chartMode === 'items' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500'}`}>สิ่งของ</button>
+                  <button onClick={() => setChartMode('money')} className={`flex-1 sm:flex-none whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${chartMode === 'money' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500'}`}>เงิน</button>
                 </div>
               </div>
               
@@ -295,12 +297,14 @@ export default function MunicipalityReportPage() {
             </div>
           </div>
 
+          {/* 👇 กราฟรายบุคคล 👇 */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[450px]">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><Users className="w-5 h-5 text-indigo-500" /> จำนวนครั้งที่ได้รับการช่วยเหลือรายบุคคล (10 อันดับแรก)</h3>
-              <div className="flex bg-slate-100 p-1 rounded-xl">
-                <button onClick={() => setPersonChartMode('agency')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${personChartMode === 'agency' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>แยกตามหน่วยงาน</button>
-                <button onClick={() => setPersonChartMode('item')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${personChartMode === 'item' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>แยกตามสิ่งที่ได้รับ</button>
+              {/* 👇 เพิ่ม whitespace-nowrap ให้ปุ่มไม่ตัดคำ 👇 */}
+              <div className="flex w-full sm:w-auto bg-slate-100 p-1 rounded-xl shrink-0">
+                <button onClick={() => setPersonChartMode('agency')} className={`flex-1 sm:flex-none whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${personChartMode === 'agency' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>แยกตามหน่วยงาน</button>
+                <button onClick={() => setPersonChartMode('item')} className={`flex-1 sm:flex-none whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${personChartMode === 'item' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>แยกตามสิ่งที่ได้รับ</button>
               </div>
             </div>
             

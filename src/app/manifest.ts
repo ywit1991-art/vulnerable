@@ -2,9 +2,9 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'ระบบข้อมูลกลุ่มเปราะบาง',
+    name: 'ข้อมูลกลุ่มเปราะบาง',
     short_name: 'กลุ่มเปราะบาง', // 👈 แก้ให้สั้นลง มันจะได้ไม่ขึ้น ...
-    description: 'ระบบข้อมูลกลุ่มเปราะบาง เทศบาลตำบลท่าวังทอง',
+    description: 'ข้อมูลกลุ่มเปราะบาง เทศบาลตำบลท่าวังทอง',
     start_url: '/',
     display: 'standalone',
     background_color: '#FDF2F8', 

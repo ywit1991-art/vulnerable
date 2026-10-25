@@ -11,7 +11,7 @@ const ibmPlex = IBM_Plex_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: 'ระบบข้อมูลกลุ่มเปราะบาง | เทศบาล',
+  title: 'ข้อมูลกลุ่มเปราะบาง | เทศบาล',
   description: 'ระบบติดตามและให้ความช่วยเหลือกลุ่มเปราะบาง',
 };
 

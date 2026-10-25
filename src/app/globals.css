@@ -35,3 +35,42 @@
 .recharts-pie-sector:focus {
   outline: none !important;
 }
+
+/* 👇 เพิ่ม Effect ให้ปุ่มและลิงก์ที่กดได้ทั้งหมด 👇 */
+@layer utilities {
+  /* กำหนดให้ปุ่ม, ลิงก์, และ Dropdown มี cursor เป็นนิ้วชี้ */
+  button, 
+  a, 
+  select,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  /* ปุ่มที่ถูก Disabled ไม่ให้เป็นนิ้วชี้ */
+  button:disabled,
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Effect เด้งขึ้นเมื่อ Hover (ยกเว้นปุ่มที่ Disabled) */
+  button:not(:disabled),
+  a:not(.no-hover),
+  select {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+
+  button:not(:disabled):hover,
+  a:not(.no-hover):hover,
+  select:hover {
+    transform: translateY(-2px); /* เด้งขึ้น 2px */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* เพิ่มเงาให้ดูมีมิติ */
+  }
+
+  /* Effect ตอนกด (คลิก) ให้ยุบลงนิดนึง */
+  button:not(:disabled):active,
+  a:not(.no-hover):active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: none;
+  }
+}

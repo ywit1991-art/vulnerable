@@ -47,7 +47,7 @@ export default function SplashScreen() {
 
       <div className="mt-8 text-center z-10">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-sky-500 bg-clip-text text-transparent mb-2">
-          ระบบข้อมูลกลุ่มเปราะบาง
+          ข้อมูลกลุ่มเปราะบาง
         </h1>
         <p className="text-slate-500 font-medium text-sm tracking-widest uppercase">
           เทศบาลตำบลท่าวังทอง

@@ -32,15 +32,16 @@ export default function Navbar() {
     <nav className="bg-white shadow-sm border-b border-slate-100 sticky top-0 z-50 print:hidden">
       <div className="max-w-[1400px] mx-auto px-2 md:px-4 h-14 md:h-16 flex items-center justify-between">
         
-        <Link href="/" className="flex items-center gap-2 md:gap-3 group flex-1 min-w-0">
+        {/* 👇 เปลี่ยนจาก Link เป็น div ธรรมดา (กดไม่ได้แล้ว) 👇 */}
+        <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full border border-slate-100 p-0.5 shrink-0 flex items-center justify-center">
              <Image src="/logo.png" alt="logo" width={36} height={36} className="object-contain" />
           </div>
           <div className="overflow-hidden">
-            <h1 className="font-bold text-slate-800 text-[10px] sm:text-sm md:text-base leading-tight truncate">ระบบข้อมูลกลุ่มเปราะบาง</h1>
+            <h1 className="font-bold text-slate-800 text-[10px] sm:text-sm md:text-base leading-tight truncate">ข้อมูลกลุ่มเปราะบาง</h1>
             <p className="text-[8px] sm:text-[10px] md:text-xs text-pink-600 font-medium truncate">เทศบาลตำบลท่าวังทอง</p>
           </div>
-        </Link>
+        </div>
         
         <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
           
@@ -51,7 +52,6 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* 👇 ปุ่มเพิ่มผู้ใช้ (สำหรับหน้า Admin) 👇 */}
           {isAdminPage && user?.role === 'SUPERADMIN' && (
             <button 
               onClick={() => window.dispatchEvent(new Event('openAddUserModal'))}

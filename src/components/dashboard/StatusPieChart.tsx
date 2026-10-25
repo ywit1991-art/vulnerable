@@ -1,5 +1,6 @@
 'use client';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { motion } from 'framer-motion'; // 👈 เพิ่ม motion
 
 export default function StatusPieChart({ data }: { data: any[] }) {
   if (!data || data.length === 0) {
@@ -21,7 +22,6 @@ export default function StatusPieChart({ data }: { data: any[] }) {
     );
   }
 
-  // 👇 ฟังก์ชันวาด Legend (เพิ่มจำนวน และ ร้อยละ) 👇
   const renderLegend = (props: any) => {
     const { payload } = props;
     return (
@@ -30,13 +30,9 @@ export default function StatusPieChart({ data }: { data: any[] }) {
           const percent = total > 0 ? ((entry.payload.value / total) * 100).toFixed(0) : 0;
           return (
             <li key={`item-${index}`} className="flex items-center gap-1.5 text-sm">
-              {/* จุดสี */}
               <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
-              {/* ชื่อสถานะ */}
               <span className="text-slate-600">{entry.value}:</span>
-              {/* 👇 จำนวน (ราย) 👇 */}
               <span className="font-bold text-slate-800 ml-0.5">{entry.payload.value} ราย</span>
-              {/* 👇 ร้อยละ (%) สีชมพู 👇 */}
               <span className="font-bold text-pink-600">({percent}%)</span>
             </li>
           );
@@ -46,7 +42,12 @@ export default function StatusPieChart({ data }: { data: any[] }) {
   };
 
   return (
-    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col overflow-hidden">
+    // 👇 เปลี่ยนเป็น motion.div และใส่ Hover Effect เหมือนกราฟอื่น 👇
+    <motion.div 
+      whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0,0,0,0.08)" }}
+      transition={{ duration: 0.3 }}
+      className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col overflow-hidden"
+    >
       <h3 className="font-bold text-slate-800 text-base mb-2">สถานะการติดตามเพื่อแก้ไขปัญหา</h3>
       
       <div className="w-full h-[240px] md:h-[280px] relative">
@@ -61,6 +62,9 @@ export default function StatusPieChart({ data }: { data: any[] }) {
               innerRadius={0}
               outerRadius={70}
               stroke="none"
+              isAnimationActive={true} // 👈 เพิ่ม Animation ตอนโหลด
+              animationBegin={200}
+              animationDuration={1500}
             >
               {data.map((entry, index) => <Cell key={index} fill={entry.color} />)}
             </Pie>
@@ -71,6 +75,6 @@ export default function StatusPieChart({ data }: { data: any[] }) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </motion.div>
   );
 }

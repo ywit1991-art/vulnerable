@@ -22,7 +22,6 @@ export default function StaffMapPage() {
   const [village, setVillage] = useState('ALL');
   const [type, setType] = useState('ALL');
   
-  // 👇 State สำหรับเปิด/ปิดแถบตัวกรองบนมือถือ 👇
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
@@ -62,12 +61,10 @@ export default function StaffMapPage() {
   return (
     <main className="h-screen w-screen overflow-hidden relative bg-slate-50">
       
-      {/* แสดงจำนวนข้อมูล */}
       <div className="absolute bottom-4 left-4 z-[1000] bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg pointer-events-none">
         พบข้อมูลบนแผนที่: {filteredPersons.length} ราย
       </div>
 
-      {/* 👇 แถบเครื่องมือลอย (Floating Toolbar) 👇 */}
       <div className="absolute top-0 left-0 right-0 z-[1000] p-2 md:p-4 pointer-events-none">
         <div className="max-w-[1200px] mx-auto pointer-events-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 overflow-hidden transition-all duration-300">
           
@@ -83,7 +80,6 @@ export default function StaffMapPage() {
               )}
             </div>
             
-            {/* ปุ่มเปิดตัวกรอง (แสดงเฉพาะมือถือ) */}
             <button 
               onClick={() => setIsFilterOpen(!isFilterOpen)} 
               className={`md:hidden flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${isFilterOpen ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-600'}`}
@@ -92,7 +88,7 @@ export default function StaffMapPage() {
               <ChevronDown className={`w-3 h-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* ปุ่มจัดการ (แสดงเฉพาะคอมพิวเตอร์) */}
+            {/* แถบเครื่องมือ คอมพิวเตอร์ */}
             <div className="hidden md:flex items-center gap-2">
               <select value={village} onChange={e => setVillage(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none cursor-pointer hover:bg-slate-200 transition-colors">
                 <option value="ALL">ทุกหมู่บ้าน</option>
@@ -103,37 +99,45 @@ export default function StaffMapPage() {
                 {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <div className="w-px h-6 bg-slate-200 mx-1"></div>
-              <button onClick={handleClearFilters} className="bg-slate-100 text-slate-600 hover:bg-slate-200 p-2.5 rounded-xl transition-colors" title="ล้างตัวกรอง">
-                <RotateCcw className="w-4 h-4" />
+              
+              <button onClick={handleClearFilters} className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors" title="ล้างตัวกรอง">
+                <RotateCcw className="w-4 h-4" /> <span>ล้างค่า</span>
               </button>
+              
               <Link href="/municipality/report" className="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-900 transition-colors">
-                <Filter className="w-4 h-4" /> รายงานสถิติ
+                <Filter className="w-4 h-4" /> <span>รายงานสถิติ</span>
               </Link>
-              <button onClick={handleLogout} className="bg-red-50 text-red-600 hover:bg-red-100 p-2.5 rounded-xl transition-colors" title="ออกจากระบบ">
-                <LogOut className="w-4 h-4" />
+              
+              <button onClick={handleLogout} className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors" title="ออกจากระบบ">
+                <LogOut className="w-4 h-4" /> <span>ออกจากระบบ</span>
               </button>
             </div>
           </div>
 
-          {/* 👇 แถวที่ 2: ตัวกรอง (แสดงเฉพาะเมื่อกดเปิดบนมือถือ) 👇 */}
-          <div className={`md:hidden px-2 pb-2 space-y-2 overflow-hidden transition-all ${isFilterOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <select value={village} onChange={e => setVillage(e.target.value)} className="w-full bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none">
-              <option value="ALL">ทุกหมู่บ้าน</option>
-              {Array.from({ length: 14 }).map((_, i) => <option key={i+1} value={i+1}>หมู่ {i+1}</option>)}
-            </select>
-            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none">
-              <option value="ALL">ทุกประเภท</option>
-              {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
+          {/* 👇 แถวที่ 2: ตัวกรอง (มือถือ) 👇 */}
+          <div className={`md:hidden px-2 pb-2 overflow-hidden transition-all ${isFilterOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+            
+            {/* 👇 เอาตัวกรองมาไว้แถวเดียวกัน 👇 */}
+            <div className="flex gap-2 mb-2">
+              <select value={village} onChange={e => setVillage(e.target.value)} className="flex-1 w-full bg-slate-100 text-xs font-medium rounded-xl px-2 py-2.5 outline-none">
+                <option value="ALL">ทุกหมู่บ้าน</option>
+                {Array.from({ length: 14 }).map((_, i) => <option key={i+1} value={i+1}>หมู่ {i+1}</option>)}
+              </select>
+              <select value={type} onChange={e => setType(e.target.value)} className="flex-1 w-full bg-slate-100 text-xs font-medium rounded-xl px-2 py-2.5 outline-none">
+                <option value="ALL">ทุกประเภท</option>
+                {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+
             <div className="flex gap-2">
-              <button onClick={handleClearFilters} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-sm font-medium flex justify-center items-center gap-2">
+              <button onClick={handleClearFilters} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center gap-1.5">
                 <RotateCcw className="w-4 h-4" /> ล้างค่า
               </button>
-              <Link href="/municipality/report" className="flex-1 bg-slate-800 text-white py-2.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2">
-                <Filter className="w-4 h-4" /> รายงาน
+              <Link href="/municipality/report" className="flex-1 bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold flex justify-center items-center gap-1.5">
+                <Filter className="w-4 h-4" /> รายงานสถิติ
               </Link>
-              <button onClick={handleLogout} className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl text-sm font-medium flex justify-center items-center gap-2">
-                <LogOut className="w-4 h-4" />
+              <button onClick={handleLogout} className="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center gap-1.5">
+                <LogOut className="w-4 h-4" /> ออกจากระบบ
               </button>
             </div>
           </div>
@@ -143,7 +147,7 @@ export default function StaffMapPage() {
 
       <MapView persons={filteredPersons} onSelect={setSelected} />
 
-      {/* Popup Modal รายละเอียด (เหมือนเดิม) */}
+      {/* Popup Modal รายละเอียด */}
       {selected && (
         <div className="absolute inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative animate-slide-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
