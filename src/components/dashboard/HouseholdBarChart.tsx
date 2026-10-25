@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, LabelList } from 'recharts';
 import { motion } from 'framer-motion';
-import { Building2, Users } from 'lucide-react'; // 👈 ไอคอนสำหรับปุ่ม Toggle
+import { Building2, Users } from 'lucide-react';
 
 export default function HouseholdBarChart({ data }: { data: any[] }) {
   const [viewMode, setViewMode] = useState<'households' | 'members'>('households');
@@ -22,7 +22,6 @@ export default function HouseholdBarChart({ data }: { data: any[] }) {
       transition={{ duration: 0.3 }}
       className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col"
     >
-      {/* 👇 Header และ ปุ่ม Toggle 👇 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
         <h3 className="font-bold text-slate-800 text-base md:text-lg">
           {viewMode === 'households' ? 'จำนวนครัวเรือนเปราะบาง' : 'จำนวนสมาชิกกลุ่มเปราะบาง'}
@@ -53,29 +52,27 @@ export default function HouseholdBarChart({ data }: { data: any[] }) {
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
             
-            {/* 👇 สลับการแสดงผลตามโหมด 👇 */}
             {viewMode === 'households' ? (
-              // โหมดครัวเรือน: แท่งเดียว บอกจำนวนบ้าน
               <Bar dataKey="households" name="จำนวนครัวเรือน" fill="#0EA5E9" radius={[4, 4, 0, 0]} barSize={30} isAnimationActive={true} animationDuration={1000}>
-                <LabelList dataKey="households" position="top" fill="#EC4899" fontSize={13} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                {/* 👇 แก้ไข formatter ให้ใช้ any และแปลงเป็น String 👇 */}
+                <LabelList dataKey="households" position="top" fill="#EC4899" fontSize={13} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
               </Bar>
             ) : (
-              // โหมดสมาชิก: กราฟแท่งซ้อน แยกประเภท
               <>
                 <Bar dataKey="ELDERLY" name="ผู้สูงอายุ" stackId="a" fill="#A855F7" barSize={20} isAnimationActive={true} animationBegin={0} animationDuration={1000}>
-                  <LabelList dataKey="ELDERLY" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                  <LabelList dataKey="ELDERLY" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
                 </Bar>
                 <Bar dataKey="DISABLED" name="ผู้พิการ" stackId="a" fill="#F97316" barSize={20} isAnimationActive={true} animationBegin={200} animationDuration={1000}>
-                  <LabelList dataKey="DISABLED" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                  <LabelList dataKey="DISABLED" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
                 </Bar>
                 <Bar dataKey="BEDRIDDEN" name="ผู้ป่วยติดเตียง" stackId="a" fill="#EF4444" barSize={20} isAnimationActive={true} animationBegin={400} animationDuration={1000}>
-                  <LabelList dataKey="BEDRIDDEN" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                  <LabelList dataKey="BEDRIDDEN" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
                 </Bar>
                 <Bar dataKey="LOW_INCOME" name="รายได้น้อย" stackId="a" fill="#F59E0B" barSize={20} isAnimationActive={true} animationBegin={600} animationDuration={1000}>
-                  <LabelList dataKey="LOW_INCOME" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                  <LabelList dataKey="LOW_INCOME" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
                 </Bar>
                 <Bar dataKey="PREGNANT" name="ตั้งครรภ์" stackId="a" fill="#3B82F6" barSize={20} radius={[4, 4, 0, 0]} isAnimationActive={true} animationBegin={800} animationDuration={1000}>
-                  <LabelList dataKey="PREGNANT" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                  <LabelList dataKey="PREGNANT" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
                 </Bar>
               </>
             )}
