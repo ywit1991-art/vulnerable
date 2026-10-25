@@ -5,6 +5,7 @@ import Navbar from '@/components/ui/Navbar';
 import { supabase } from '@/lib/supabase/client';
 import { Filter, RotateCcw, TrendingUp, Package, Users, Printer } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import LoadingScreen from '@/components/ui/LoadingScreen'; // 👈 เพิ่มบรรทัดนี้
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -196,7 +197,7 @@ export default function MunicipalityReportPage() {
   const COLORS = ['#EC4899', '#0EA5E9', '#F59E0B', '#10B981', '#8B5CF6', '#F43F5E'];
   const currentChartData = chartMode === 'items' ? itemsData : moneyData;
 
-  if (isLoading) return <LoadingScreen />; return <div className="min-h-screen flex items-center justify-center text-slate-500 font-medium">กำลังโหลดข้อมูล...</div>;
+  if (isLoading) return <LoadingScreen />;
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20 print:bg-white print:pb-0">
@@ -329,9 +330,7 @@ export default function MunicipalityReportPage() {
       {/* ========================================================= */}
       <div className="hidden print:block w-full max-w-[210mm] mx-auto p-8 bg-white text-black">
         
-        {/* Header เอกสาร */}
         <div className="flex items-center gap-5 border-b-2 border-slate-800 pb-5 mb-6">
-          {/* 👇 เปลี่ยนจาก Image เป็น img ปกติ 👇 */}
           <img src="/logo.png" alt="Logo" className="w-20 h-20 object-contain" />
           <div>
             <h1 className="text-2xl font-bold text-slate-900">รายงานสรุปผลการให้ความช่วยเหลือ</h1>
@@ -343,7 +342,6 @@ export default function MunicipalityReportPage() {
           </div>
         </div>
 
-        {/* ส่วนที่ 1: สรุปภาพรวม */}
         <div className="mb-8">
           <h3 className="font-bold text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">1. สรุปภาพรวมการช่วยเหลือ</h3>
           <table className="w-full text-sm text-left border-collapse border border-slate-300">
@@ -364,7 +362,6 @@ export default function MunicipalityReportPage() {
           </table>
         </div>
 
-        {/* ส่วนที่ 2: สรุปยอดจ่ายสิ่งของ/เงิน */}
         <div className="mb-8">
           <h3 className="font-bold text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">2. สรุปยอดจ่ายสิ่งของ/เงิน แยกตามประเภท</h3>
           {printAidData.length > 0 ? (
@@ -394,7 +391,6 @@ export default function MunicipalityReportPage() {
           )}
         </div>
 
-        {/* ส่วนที่ 3: รายละเอียดรายบุคคล */}
         <div className="mb-8">
           <h3 className="font-bold text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">3. รายละเอียดการให้ความช่วยเหลือรายบุคคล</h3>
           {filteredData.length > 0 ? (
@@ -431,7 +427,6 @@ export default function MunicipalityReportPage() {
           )}
         </div>
 
-        {/* ส่วนท้าย: ลายเซ็น */}
         <div className="mt-16 flex justify-end">
           <div className="text-center w-72">
             <p className="mb-8 text-sm text-slate-600">ลงชื่อ ....................................................</p>

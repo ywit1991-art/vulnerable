@@ -11,7 +11,7 @@ import { motion } from 'framer-motion';
 import HouseholdBarChart from '@/components/dashboard/HouseholdBarChart';
 import AgeBarChart from '@/components/dashboard/AgeBarChart';
 import StatusPieChart from '@/components/dashboard/StatusPieChart';
-
+import LoadingScreen from '@/components/ui/LoadingScreen';
 const PublicMap = dynamic(() => import('@/components/map/PublicMap'), { 
   ssr: false,
   loading: () => <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400">กำลังโหลดแผนที่...</div>
