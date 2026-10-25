@@ -2,12 +2,12 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'ข้อมูลกลุ่มเปราะบาง',
-    short_name: 'กลุ่มเปราะบาง', // 👈 แก้ให้สั้นลง มันจะได้ไม่ขึ้น ...
-    description: 'ข้อมูลกลุ่มเปราะบาง เทศบาลตำบลท่าวังทอง',
+    name: 'ระบบข้อมูลกลุ่มเปราะบาง',
+    short_name: 'กลุ่มเปราะบาง',
+    description: 'ระบบข้อมูลกลุ่มเปราะบาง เทศบาลตำบลท่าวังทอง',
     start_url: '/',
     display: 'standalone',
-    background_color: '#FDF2F8', 
+    background_color: '#FDF2F8', // สีพื้นหลังชมพูอ่อน
     theme_color: '#EC4899',
     icons: [
       {
@@ -20,7 +20,14 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/icons/icon-512x512.png',
         sizes: '512x512',
         type: 'image/png',
-        purpose: 'maskable', // 👈 บังคับให้เป็น Maskable Icon
+        purpose: 'any',
+      },
+      {
+        // 👇 ตัวนี้สำคัญมากสำหรับ Splash Screen ของ Android 👇
+        src: '/icons/icon-512x512.png', 
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable', // บังคับให้ระบบรู้ว่านี่คือ Maskable
       },
       {
         src: '/icons/apple-icon.png',
