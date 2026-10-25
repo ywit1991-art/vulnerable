@@ -26,17 +26,19 @@ export default function AgeBarChart({ data }: { data: any[] }) {
       </div>
       <div className="flex-1" suppressHydrationWarning>
         <ResponsiveContainer width="100%" height="100%">
-          {/* 👇 เพิ่ม margin ด้านบนเป็น 30 เพื่อเผื่อที่ให้ตัวเลข 👇 */}
-          <BarChart data={data} margin={{ top: 30, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <BarChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+            {/* 👇 ปรับสีเส้นกริดให้ชัดขึ้น 👇 */}
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.3} />
+            
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
             
-            {/* 👇 กำหนด domain ให้เผื่อด้านบน 1 หน่วย (เช่น สูงสุด 4 ให้แกน Y ไปจบที่ 5) 👇 */}
+            {/* 👇 เพิ่ม interval={0} และ domain 👇 */}
             <YAxis 
               axisLine={false} 
               tickLine={false} 
               tick={{ fill: '#64748b', fontSize: 12 }} 
               allowDecimals={false} 
+              interval={0}
               domain={[0, (dataMax: number) => Math.max(5, dataMax + 1)]} 
             />
             

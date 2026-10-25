@@ -45,16 +45,18 @@ export default function HouseholdBarChart({ data }: { data: any[] }) {
       <div className="flex-1" suppressHydrationWarning>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            {/* 👇 ปรับสีเส้นกริดให้ชัดขึ้น และยังคงเป็นเส้นประ 👇 */}
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.3} />
             
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `หมู่ ${value}`} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} allowDecimals={false} />
+            
+            {/* 👇 เพิ่ม interval={0} เพื่อบังคับให้โชว์ทุกตัวเลข 👇 */}
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} allowDecimals={false} interval={0} />
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
             
             {viewMode === 'households' ? (
               <Bar dataKey="households" name="จำนวนครัวเรือน" fill="#0EA5E9" radius={[4, 4, 0, 0]} barSize={30} isAnimationActive={true} animationDuration={1000}>
-                {/* 👇 แก้ไข formatter ให้ใช้ any และแปลงเป็น String 👇 */}
                 <LabelList dataKey="households" position="top" fill="#EC4899" fontSize={13} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? String(val) : ''} />
               </Bar>
             ) : (
