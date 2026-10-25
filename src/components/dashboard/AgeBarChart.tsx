@@ -14,6 +14,14 @@ export default function AgeBarChart({ data }: { data: any[] }) {
     );
   }
 
+  // 👇 คำนวณหาค่าสูงสุด เพื่อกำหนดช่วง Step ละ 5 👇
+  const maxDataValue = Math.max(...data.map(d => Number(d.value) || 0), 0);
+  const step = 5;
+  const maxTick = Math.max(step, Math.ceil(maxDataValue / step) * step);
+  
+  // สร้าง Array ตัวเลข [0, 5, 10, 15...]
+  const yTicks = Array.from({ length: (maxTick / step) + 1 }, (_, i) => i * step);
+
   return (
     <motion.div 
       whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0,0,0,0.08)" }}
@@ -27,19 +35,18 @@ export default function AgeBarChart({ data }: { data: any[] }) {
       <div className="flex-1" suppressHydrationWarning>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-            {/* 👇 ปรับสีเส้นกริดให้ชัดขึ้น 👇 */}
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.3} />
             
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
             
-            {/* 👇 เพิ่ม interval={0} และ domain 👇 */}
+            {/* 👇 ใช้ ticks={yTicks} ที่คำนวณแบบ Step 5 👇 */}
             <YAxis 
               axisLine={false} 
               tickLine={false} 
               tick={{ fill: '#64748b', fontSize: 12 }} 
               allowDecimals={false} 
-              interval={0}
-              domain={[0, (dataMax: number) => Math.max(5, dataMax + 1)]} 
+              ticks={yTicks}
+              domain={[0, maxTick]} 
             />
             
             <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40} isAnimationActive={true} animationBegin={300} animationDuration={1500} animationEasing="ease-out">

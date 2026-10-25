@@ -16,6 +16,21 @@ export default function HouseholdBarChart({ data }: { data: any[] }) {
     );
   }
 
+  // 👇 คำนวณหาค่าสูงสุดของโหมดที่กำลังดูอยู่ เพื่อกำหนด Step ละ 5 👇
+  let maxVal = 0;
+  data.forEach(d => {
+    if (viewMode === 'households') {
+      maxVal = Math.max(maxVal, Number(d.households) || 0);
+    } else {
+      const sumMembers = (Number(d.ELDERLY)||0) + (Number(d.DISABLED)||0) + (Number(d.BEDRIDDEN)||0) + (Number(d.LOW_INCOME)||0) + (Number(d.PREGNANT)||0);
+      maxVal = Math.max(maxVal, sumMembers);
+    }
+  });
+  
+  const step = 5;
+  const maxTick = Math.max(step, Math.ceil(maxVal / step) * step);
+  const yTicks = Array.from({ length: (maxTick / step) + 1 }, (_, i) => i * step);
+
   return (
     <motion.div 
       whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0,0,0,0.08)" }}
@@ -45,13 +60,12 @@ export default function HouseholdBarChart({ data }: { data: any[] }) {
       <div className="flex-1" suppressHydrationWarning>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-            {/* 👇 ปรับสีเส้นกริดให้ชัดขึ้น และยังคงเป็นเส้นประ 👇 */}
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.3} />
             
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `หมู่ ${value}`} />
             
-            {/* 👇 เพิ่ม interval={0} เพื่อบังคับให้โชว์ทุกตัวเลข 👇 */}
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} allowDecimals={false} interval={0} />
+            {/* 👇 ใช้ ticks={yTicks} แบบ Step 5 👇 */}
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} allowDecimals={false} ticks={yTicks} domain={[0, maxTick]} />
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
             
