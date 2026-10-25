@@ -1,17 +1,18 @@
-import { IBM_Plex_Sans_Thai } from 'next/font/google';
+import { Noto_Sans_Thai } from 'next/font/google';
 import { Toaster } from 'sonner';
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
-const ibmPlex = IBM_Plex_Sans_Thai({
+// 👇 ประกาศตัวแปร notoSansThai ตรงนี้ 👇
+const notoSansThai = Noto_Sans_Thai({
   subsets: ['thai', 'latin'],
   weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-ibm-plex-thai',
+  variable: '--font-noto-sans-thai',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'ข้อมูลกลุ่มเปราะบาง | เทศบาล',
+  title: 'ระบบข้อมูลกลุ่มเปราะบาง | เทศบาล',
   description: 'ระบบติดตามและให้ความช่วยเหลือกลุ่มเปราะบาง',
 };
 
@@ -23,16 +24,11 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-// ... โค้ด import ด้านบน ...
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={notoSansThai.variable} suppressHydrationWarning>
       <head>
-        {/* 👇 บังคับให้ iOS ใช้รูปนี้เป็นไอคอนและ Splash 👇 */}
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon.png" />
-        <link rel="apple-touch-startup-image" href="/logo.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="apple-touch-icon" href="/icons/apple-icon.png" />
       </head>
       <body className="font-sans antialiased bg-slate-50 min-h-screen" suppressHydrationWarning>
         {children}
