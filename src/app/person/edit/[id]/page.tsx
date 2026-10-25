@@ -128,7 +128,7 @@ export default function EditPersonPage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
+  if (isLoading) return <LoadingScreen />; return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
   if (!user || !personData) return null;
 
   return (

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { KeyRound, UserCircle, LogIn, ArrowLeft, Loader2 } from 'lucide-react';
+import { KeyRound, UserCircle, LogIn, ArrowLeft } from 'lucide-react'; // 👈 เอา Loader2 ออก
 import { toast } from 'sonner';
 import { getUsers } from '@/lib/auth';
 import Image from 'next/image';
@@ -17,13 +17,13 @@ export default function LoginPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [welcomeName, setWelcomeName] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => { // 👈 ใส่ async
     e.preventDefault();
     if (!username.trim()) return toast.error('กรุณากรอกรหัสผู้ใช้');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const users = getUsers();
+    try {
+      const users = await getUsers(); // 👈 ใส่ await
       const user = users.find(u => u.username === username && u.password === password);
 
       if (!user) {
@@ -39,17 +39,17 @@ export default function LoginPage() {
       
       setWelcomeName(user.name);
       setShowSuccessModal(true);
-      setIsLoading(false);
       
       setTimeout(() => {
-        if (user.role === 'SUPERADMIN') router.push('/admin');
-        else if (user.role === 'MUNICIPALITY') router.push('/map');
-        else if (user.role === 'OSM') router.push('/person/new');
-      }, 2500); // รอ 2.5 วินาทีเพื่อให้ดู Animation สวยๆ
-
-    }, 800);
+        if (user.role === 'SUPERADMIN') window.location.href = '/admin';
+        else if (user.role === 'MUNICIPALITY') window.location.href = '/map';
+        else if (user.role === 'OSM') window.location.href = '/person/new';
+      }, 2500); 
+    } catch (error) {
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      setIsLoading(false);
+    }
   };
-
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
       
@@ -88,7 +88,7 @@ export default function LoginPage() {
               </div>
             </div>
             <button type="submit" disabled={isLoading} className="w-full h-14 mt-2 rounded-xl bg-gradient-to-r from-pink-500 to-sky-500 text-white font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
-              {isLoading ? <><Loader2 className="w-5 h-5 animate-spin"/> กำลังตรวจสอบ...</> : <><LogIn className="w-5 h-5" /> เข้าสู่ระบบ</>}
+              {isLoading ? 'กำลังตรวจสอบ...' : <><LogIn className="w-5 h-5" /> เข้าสู่ระบบ</>}
             </button>
           </form>
           <div className="mt-6 text-center text-xs text-slate-400 space-y-1">
@@ -99,7 +99,7 @@ export default function LoginPage() {
         </div>
       </motion.div>
 
-      {/* 👇 Modal ยินดีต้อนรับ (Animation โลโก้สวยๆ) 👇 */}
+      {/* Modal ยินดีต้อนรับ */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <motion.div 
@@ -108,13 +108,7 @@ export default function LoginPage() {
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
           >
-            {/* วงแหวนหมุนรอบโลโก้ */}
             <div className="relative w-28 h-28 mx-auto mb-6">
-              <motion.div 
-                animate={{ rotate: 360 }} 
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-[-10px] rounded-full border-[3px] border-dashed border-pink-300 opacity-60"
-              />
               <motion.div 
                 initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }}
                 className="w-full h-full bg-white rounded-full border-4 border-pink-50 p-2 shadow-xl flex items-center justify-center relative z-10"
@@ -130,18 +124,14 @@ export default function LoginPage() {
               ยินดีต้อนรับ<br/><span className="font-bold text-pink-600 text-lg">{welcomeName}</span>
             </motion.p>
             
-            {/* แถบโหลดดิ้งวิ่ง */}
-            <div className="w-full bg-sky-50 rounded-full h-2 mb-2 overflow-hidden">
+            {/* 👇 เหลือแค่แถบโหลด 👇 */}
+            <div className="w-full bg-sky-50 rounded-full h-2 overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }} 
                 animate={{ width: "100%" }} 
                 transition={{ duration: 2.3, ease: "easeInOut" }}
                 className="bg-gradient-to-r from-pink-500 to-sky-500 h-full rounded-full"
               />
-            </div>
-            <div className="flex items-center justify-center gap-2 text-xs text-sky-600 font-medium">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              กำลังพาคุณเข้าสู่หน้าจัดการ...
             </div>
           </motion.div>
         </div>

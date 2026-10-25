@@ -1,11 +1,10 @@
 'use client';
-import { useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MUNICIPALITY_OFFICE } from '@/lib/constants';
+import { Lock } from 'lucide-react';
 
-// 👇 สร้างไอคอนหมุดเองด้วยโค้ด HTML (ไม่ต้องพึ่งไฟล์รูปภาพ) 👇
 const customIcon = L.divIcon({
   className: 'custom-marker',
   html: `
@@ -31,20 +30,22 @@ const customIcon = L.divIcon({
     </div>
   `,
   iconSize: [24, 24],
-  iconAnchor: [12, 12], // จุดกึ่งกลางของหมุด
+  iconAnchor: [12, 12],
 });
 
 interface Props {
   position: { lat: number; lng: number };
   setPosition: (pos: { lat: number; lng: number }) => void;
+  isLocked?: boolean;
 }
 
-// คอมโพเนนต์จัดการการคลิกบนแผนที่
-function LocationMarker({ position, setPosition }: Props) {
+function LocationMarker({ position, setPosition, isLocked }: Props) {
+  // ดักจับการคลิกแผนที่
   useMapEvents({
     click(e) {
-      // เมื่อคลิกบนแผนที่ ให้ย้ายหมุดไปที่จุดนั้น
-      setPosition(e.latlng);
+      if (!isLocked) {
+        setPosition(e.latlng);
+      }
     },
   });
 
@@ -52,37 +53,45 @@ function LocationMarker({ position, setPosition }: Props) {
     <Marker
       position={position}
       icon={customIcon}
-      draggable={true}
+      draggable={!isLocked} // 👈 ส่ง draggable=false เมื่อล็อค
       eventHandlers={{
         dragend(e) {
-          // เมื่อลากหมุดเสร็จ ให้อัปเดตพิกัดใหม่
-          setPosition(e.target.getLatLng());
+          if (!isLocked) {
+            setPosition(e.target.getLatLng());
+          }
         },
       }}
     />
   ) : null;
 }
 
-export default function LocationPicker({ position, setPosition }: Props) {
+export default function LocationPicker({ position, setPosition, isLocked = false }: Props) {
   return (
     <div className="h-64 w-full rounded-2xl overflow-hidden border border-slate-200 z-0 relative">
       <MapContainer
         center={position.lat ? [position.lat, position.lng] : [MUNICIPALITY_OFFICE.lat, MUNICIPALITY_OFFICE.lng]}
         zoom={15}
         className="w-full h-full z-0"
-        // 👇 เปิดการซูม/ลากปกติไว้ เพื่อให้用户可以เลือกพิกัดได้ 👇
-        scrollWheelZoom={true} 
+        scrollWheelZoom={!isLocked} 
+        dragging={!isLocked}        
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap"
         />
-        <LocationMarker position={position} setPosition={setPosition} />
+        <LocationMarker position={position} setPosition={setPosition} isLocked={isLocked} />
       </MapContainer>
       
-      {/* 👇 แถบข้อความด้านล่าง (ใส่ pointer-events-none เพื่อไม่ให้มันบังการคลิกแผนที่) 👇 */}
-      <div className="absolute bottom-2 left-2 right-2 bg-white/90 text-xs text-center text-slate-600 py-1.5 rounded-lg pointer-events-none backdrop-blur z-[1000] shadow-sm font-medium">
-        แตะบนแผนที่เพื่อปักหมุด หรือลากหมุดเพื่อปรับตำแหน่ง
+      {/* แถบข้อความด้านล่าง */}
+      <div className={`absolute bottom-2 left-2 right-2 text-xs text-center py-1.5 rounded-lg backdrop-blur z-[1000] shadow-sm font-medium flex items-center justify-center gap-1.5
+        ${isLocked ? 'bg-red-50/90 text-red-600' : 'bg-white/90 text-slate-600'}`}>
+        {isLocked ? (
+          <>
+            <Lock className="w-3.5 h-3.5" /> พิกัดถูกล็อค (เนื่องจากมีข้อมูลเดิมแล้ว)
+          </>
+        ) : (
+          'แตะบนแผนที่เพื่อปักหมุด หรือลากหมุดเพื่อปรับตำแหน่ง'
+        )}
       </div>
     </div>
   );

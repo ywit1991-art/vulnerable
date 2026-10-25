@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
-import { Loader2, Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { VULN, type VulnType } from '@/lib/constants';
 import { getUsers } from '@/lib/auth';
+import LoadingScreen from '@/components/ui/LoadingScreen'; // 👈 เพิ่มบรรทัดนี้เข้ามา
 
 export default function PrintPersonPage() {
   const { id } = useParams();
@@ -35,7 +36,7 @@ export default function PrintPersonPage() {
         
         if (regData) setRegistry(regData);
 
-        const users = getUsers();
+        const users = await getUsers(); // 👈 ใช้ await เพราะดึงจาก Supabase แล้ว
         const staff = users.find(u => u.username === person.created_by);
         if (staff) setOsmName(staff.name);
       }
@@ -44,13 +45,10 @@ export default function PrintPersonPage() {
     fetchData();
   }, [id]);
 
-  // 👇 แก้ไขฟังก์ชันย้อนกลับให้ฉลาดขึ้น 👇
   const handleBack = () => {
-    // ถ้าประวัติการเข้าชมมีมากกว่า 1 หน้า (เปิดมาจากหน้าอื่น) ให้ย้อนกลับ
     if (window.history.length > 1) {
       router.back();
     } else {
-      // ถ้าเปิดมาแบบแท็บใหม่ (เช่น window.open) ให้เด้งไปหน้าหลักตามสิทธิ์
       const role = sessionStorage.getItem('staff_role');
       if (role === 'OSM') {
         router.push('/person/my-records');
@@ -60,7 +58,9 @@ export default function PrintPersonPage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
+  // 👇 เรียกใช้ LoadingScreen ที่ Import มาแล้ว 👇
+  if (isLoading) return <LoadingScreen />;
+  
   if (!data) return <div className="min-h-screen flex items-center justify-center text-slate-500">ไม่พบข้อมูล</div>;
 
   const formatNationalId = (id: string) => {
@@ -97,7 +97,7 @@ export default function PrintPersonPage() {
       <div className="max-w-[210mm] mx-auto bg-white p-10 shadow-lg print:shadow-none print:p-0 print:max-w-none min-h-[297mm]">
         
         <div className="flex items-center gap-4 border-b-2 border-slate-800 pb-4 mb-6">
-          <Image src="/logo.png" alt="Logo" width={80} height={80} className="object-contain" />
+          <img src="/logo.png" alt="Logo" className="w-20 h-20 object-contain" />
           <div>
             <h1 className="text-2xl font-bold text-slate-900">เทศบาลตำบลท่าวังทอง</h1>
             <p className="text-slate-600">อำเภอเมืองพะเยา จังหวัดพะเยา</p>

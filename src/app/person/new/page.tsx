@@ -28,7 +28,11 @@ export default function NewPersonPage() {
   const [nationalId, setNationalId] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [registryData, setRegistryData] = useState<any>(null);
+  
   const [coords, setCoords] = useState({ lat: 19.1750, lng: 99.9150 });
+  // 👇 ประกาศ State สำหรับล็อคพิกัด 👇
+  const [isLocationLocked, setIsLocationLocked] = useState(false); 
+  
   const [selectedVuln, setSelectedVuln] = useState<VulnType | null>(null);
   const [note, setNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -68,24 +72,57 @@ export default function NewPersonPage() {
     if (nationalId.length !== 13) return toast.error('กรุณากรอกเลขบัตร 13 หลัก');
     setIsSearching(true);
     try {
+      // 1. ค้นหาข้อมูลทะเบียนราษฎร
       const { data, error } = await supabase().from('registry_persons').select('*').eq('national_id', nationalId).single();
+      
       if (error || !data) {
-        toast.error('ไม่พบข้อมูลในทะเบียนราษฎร');
+        toast.error('บุคคลนี้ไม่ได้อยุ่ในพื้นที่ตำบลท่าวังทอง');
         setRegistryData(null);
+        return;
+      }
+
+      // 2. ตรวจสอบหมู่บ้าน
+      const osmAreaStr = String(user.area || '').replace(/\D/g, '');
+      const personVillage = String(data.village_no || '').trim();
+
+      if (osmAreaStr && personVillage && osmAreaStr !== personVillage) {
+        toast.error(`บุคคลนี้ไม่ได้อยู่ในพื้นที่ ${user.area} (บุคคลนี้อยู่หมู่ ${personVillage})`, { duration: 5000 });
+        setRegistryData(null);
+        return;
+      }
+
+      // 3. ถ้าผ่าน ให้ตั้งค่าข้อมูล
+      setRegistryData(data);
+      
+      const addressParts = [
+        data.house_no ? `${data.house_no}` : '',
+        data.soi ? `ซอย${data.soi}` : '',
+        data.road ? `ถนน${data.road}` : '',
+        data.village_no ? `หมู่ที่ ${data.village_no}` : '',
+        data.subdistrict ? `ต.${data.subdistrict}` : '',
+        data.district ? `อ.${data.district}` : '',
+        data.province ? `จ.${data.province}` : ''
+      ].filter(Boolean);
+      
+      setNote(addressParts.join(' '));
+
+      // 4. ค้นหาประวัติเดิมว่าเคยลงทะเบียนหรือยัง (เพื่อดึงพิกัด)
+      const { data: existingVuln } = await supabase()
+        .from('vulnerable_persons')
+        .select('latitude, longitude')
+        .eq('national_id', nationalId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (existingVuln && existingVuln.length > 0 && existingVuln[0].latitude && existingVuln[0].longitude) {
+        setCoords({ lat: existingVuln[0].latitude, lng: existingVuln[0].longitude });
+        setIsLocationLocked(true); // 👈 ล็อคพิกัด
+        toast.success('พบประวัติเดิม: ล็อคพิกัดตามที่เคยบันทึกไว้แล้ว');
       } else {
-        setRegistryData(data);
-        const addressParts = [
-          data.house_no ? `${data.house_no}` : '',
-          data.soi ? `ซอย${data.soi}` : '',
-          data.road ? `ถนน${data.road}` : '',
-          data.village_no ? `หมู่ที่ ${data.village_no}` : '',
-          data.subdistrict ? `ต.${data.subdistrict}` : '',
-          data.district ? `อ.${data.district}` : '',
-          data.province ? `จ.${data.province}` : ''
-        ].filter(Boolean);
-        setNote(addressParts.join(' '));
+        setIsLocationLocked(false); // 👈 ปลดล็อคพิกัด
         toast.success('พบข้อมูลทะเบียนราษฎร');
       }
+      
     } catch (err) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -99,6 +136,24 @@ export default function NewPersonPage() {
     
     setIsSaving(true);
     try {
+      // เช็กว่าคนนี้เคยถูกบันทึกประเภทนี้ไปหรือยัง
+      const { data: existingRecords } = await supabase()
+        .from('vulnerable_persons')
+        .select('id, vulnerabilities')
+        .eq('national_id', nationalId);
+
+      if (existingRecords && existingRecords.length > 0) {
+        const isDuplicate = existingRecords.some((record: any) => 
+          record.vulnerabilities && record.vulnerabilities.includes(selectedVuln)
+        );
+
+        if (isDuplicate) {
+          toast.error(`บุคคลนี้ถูกบันทึกเป็น "${VULN[selectedVuln].label}" ในระบบแล้ว`);
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const { error } = await supabase().from('vulnerable_persons').insert([{
         national_id: nationalId,
         prefix: registryData.prefix || null,
@@ -119,10 +174,18 @@ export default function NewPersonPage() {
 
       if (error) throw error;
       toast.success('บันทึกข้อมูลสำเร็จ!');
-      router.push('/person/my-records');
-    } catch (err) {
-      console.error(err);
-      toast.error('เกิดข้อผิดพลาดในการบันทึก');
+      
+      // เคลียร์ค่าหลังบันทึก
+      setNationalId('');
+      setRegistryData(null);
+      setSelectedVuln(null);
+      setCoords({ lat: 19.1750, lng: 99.9150 });
+      setIsLocationLocked(false); // 👈 ปลดล็อค
+      setNote('');
+      
+    } catch (error: any) {
+      console.error("Supabase Error:", error);
+      toast.error(`ข้อผิดพลาด: ${error.message || 'ไม่สามารถบันทึกได้'}`);
     } finally {
       setIsSaving(false);
     }
@@ -133,7 +196,6 @@ export default function NewPersonPage() {
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
       <Navbar />
-      
       <div className="max-w-3xl mx-auto px-4 mt-6">
         
         {/* 1. ค้นหา */}
@@ -162,7 +224,12 @@ export default function NewPersonPage() {
             <span className="w-6 h-6 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-xs">2</span>
             พิกัดที่อยู่
           </h2>
-          <LocationPicker position={coords} setPosition={setCoords} />
+          <LocationPicker 
+            key={isLocationLocked ? 'locked' : 'unlocked'} 
+            position={coords} 
+            setPosition={setCoords} 
+            isLocked={isLocationLocked} 
+          />
         </div>
 
         {/* 3. ประเภท และ ฟอร์มประเมิน */}

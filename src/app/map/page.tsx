@@ -4,7 +4,7 @@ import Navbar from '@/components/ui/Navbar';
 import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
-import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, CheckCircle2, Calendar, Building2 } from 'lucide-react';
+import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { VULN, type VulnType } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,9 @@ export default function StaffMapPage() {
   const [search, setSearch] = useState('');
   const [village, setVillage] = useState('ALL');
   const [type, setType] = useState('ALL');
+  
+  // 👇 State สำหรับเปิด/ปิดแถบตัวกรองบนมือถือ 👇
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     const auth = checkAuth(['MUNICIPALITY', 'OSM']);
@@ -28,7 +31,6 @@ export default function StaffMapPage() {
     setUser(auth);
 
     const fetchPersons = async () => {
-      // ดึงข้อมูลคน พร้อมประวัติการช่วยเหลือทั้งหมด
       const { data } = await supabase().from('vulnerable_persons').select('*, interventions(*)');
       if (data) setPersons(data);
     };
@@ -65,50 +67,83 @@ export default function StaffMapPage() {
         พบข้อมูลบนแผนที่: {filteredPersons.length} ราย
       </div>
 
-// ... โค้ด import ด้านบนเหมือนเดิม ...
-// ในส่วนของแถบเครื่องมือด้านบน (Top bar)
+      {/* 👇 แถบเครื่องมือลอย (Floating Toolbar) 👇 */}
+      <div className="absolute top-0 left-0 right-0 z-[1000] p-2 md:p-4 pointer-events-none">
+        <div className="max-w-[1200px] mx-auto pointer-events-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 overflow-hidden transition-all duration-300">
+          
+          {/* แถวที่ 1: ช่องค้นหา และปุ่มเปิดตัวกรอง (มือถือ) */}
+          <div className="flex items-center gap-2 p-2">
+            <div className="flex-1 flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2.5">
+              <Search className="w-4 h-4 text-pink-500 shrink-0" />
+              <input type="text" placeholder="ค้นหาชื่อ..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent outline-none text-sm w-full" />
+              {search && (
+                <button onClick={() => setSearch('')} className="p-1 hover:bg-slate-200 rounded-full text-slate-400">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            
+            {/* ปุ่มเปิดตัวกรอง (แสดงเฉพาะมือถือ) */}
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)} 
+              className={`md:hidden flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${isFilterOpen ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-600'}`}
+            >
+              <Filter className="w-4 h-4" /> 
+              <ChevronDown className={`w-3 h-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-<div className="absolute top-0 left-0 right-0 z-[1000] p-2 md:p-4 pointer-events-none">
-  <div className="max-w-[1200px] mx-auto pointer-events-auto bg-white/95 backdrop-blur-md rounded-xl md:rounded-2xl shadow-lg border border-white/40 p-1.5 md:p-2 flex flex-col md:flex-row gap-2 justify-between">
-    
-    <div className="flex gap-2 flex-1">
-      <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-2 md:px-3 py-1.5 md:py-2 flex-1">
-        <Search className="w-4 h-4 text-pink-500" />
-        <input type="text" placeholder="ค้นหา..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent outline-none text-xs md:text-sm w-full" />
+            {/* ปุ่มจัดการ (แสดงเฉพาะคอมพิวเตอร์) */}
+            <div className="hidden md:flex items-center gap-2">
+              <select value={village} onChange={e => setVillage(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none cursor-pointer hover:bg-slate-200 transition-colors">
+                <option value="ALL">ทุกหมู่บ้าน</option>
+                {Array.from({ length: 14 }).map((_, i) => <option key={i+1} value={i+1}>หมู่ {i+1}</option>)}
+              </select>
+              <select value={type} onChange={e => setType(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none cursor-pointer hover:bg-slate-200 transition-colors">
+                <option value="ALL">ทุกประเภท</option>
+                {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <div className="w-px h-6 bg-slate-200 mx-1"></div>
+              <button onClick={handleClearFilters} className="bg-slate-100 text-slate-600 hover:bg-slate-200 p-2.5 rounded-xl transition-colors" title="ล้างตัวกรอง">
+                <RotateCcw className="w-4 h-4" />
+              </button>
+              <Link href="/municipality/report" className="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-900 transition-colors">
+                <Filter className="w-4 h-4" /> รายงานสถิติ
+              </Link>
+              <button onClick={handleLogout} className="bg-red-50 text-red-600 hover:bg-red-100 p-2.5 rounded-xl transition-colors" title="ออกจากระบบ">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* 👇 แถวที่ 2: ตัวกรอง (แสดงเฉพาะเมื่อกดเปิดบนมือถือ) 👇 */}
+          <div className={`md:hidden px-2 pb-2 space-y-2 overflow-hidden transition-all ${isFilterOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <select value={village} onChange={e => setVillage(e.target.value)} className="w-full bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none">
+              <option value="ALL">ทุกหมู่บ้าน</option>
+              {Array.from({ length: 14 }).map((_, i) => <option key={i+1} value={i+1}>หมู่ {i+1}</option>)}
+            </select>
+            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none">
+              <option value="ALL">ทุกประเภท</option>
+              {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <button onClick={handleClearFilters} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-sm font-medium flex justify-center items-center gap-2">
+                <RotateCcw className="w-4 h-4" /> ล้างค่า
+              </button>
+              <Link href="/municipality/report" className="flex-1 bg-slate-800 text-white py-2.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2">
+                <Filter className="w-4 h-4" /> รายงาน
+              </Link>
+              <button onClick={handleLogout} className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl text-sm font-medium flex justify-center items-center gap-2">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
-      {/* ตัวกรอง แสดงเฉพาะจอใหญ่ */}
-      <div className="hidden md:flex gap-2">
-        <select value={village} onChange={e => setVillage(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-lg px-3 py-2 outline-none">
-          <option value="ALL">ทุกหมู่บ้าน</option>
-          {Array.from({ length: 14 }).map((_, i) => <option key={i+1} value={i+1}>หมู่ {i+1}</option>)}
-        </select>
-        <select value={type} onChange={e => setType(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-lg px-3 py-2 outline-none">
-          <option value="ALL">ทุกประเภท</option>
-          {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-      </div>
-    </div>
-
-    <div className="flex gap-1.5 md:gap-2 justify-end">
-      <button onClick={handleClearFilters} className="bg-slate-100 text-slate-600 hover:bg-slate-200 p-2 md:px-4 md:py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shrink-0" title="ล้างตัวกรอง">
-        <RotateCcw className="w-4 h-4" />
-      </button>
-
-      <Link href="/municipality/report" className="bg-slate-800 text-white p-2 md:px-4 md:py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-900 transition-colors shrink-0" title="รายงานสถิติ">
-        <Filter className="w-4 h-4" /> <span className="hidden md:inline">รายงานสถิติ</span>
-      </Link>
-
-      <button onClick={handleLogout} className="bg-red-50 text-red-600 hover:bg-red-100 p-2 md:px-4 md:py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shrink-0" title="ออกจากระบบ">
-        <LogOut className="w-4 h-4" /> <span className="hidden md:inline">ออกจากระบบ</span>
-      </button>
-    </div>
-
-  </div>
-</div>
 
       <MapView persons={filteredPersons} onSelect={setSelected} />
 
-      {/* 👇 Popup Modal รายละเอียด (เพิ่มประวัติการช่วยเหลือ) 👇 */}
+      {/* Popup Modal รายละเอียด (เหมือนเดิม) */}
       {selected && (
         <div className="absolute inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative animate-slide-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -127,46 +162,6 @@ export default function StaffMapPage() {
               <div className="space-y-2 text-sm text-slate-600 bg-slate-50 p-4 rounded-2xl mb-4">
                 <p className="flex items-start gap-2"><MapPin className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" /> {selected.note || 'ไม่ระบุที่อยู่'}</p>
                 {selected.phone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {selected.phone}</p>}
-              </div>
-
-              {/* 👇 ส่วนแสดงประวัติการช่วยเหลือ 👇 */}
-              <div className="mb-6">
-                <h4 className="font-bold text-slate-800 mb-3 text-sm flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" /> ประวัติการช่วยเหลือ
-                </h4>
-                
-                {selected.interventions && selected.interventions.length > 0 ? (
-                  <div className="space-y-2">
-                    {selected.interventions.map((inv: any) => (
-                      <div key={inv.id} className="border border-slate-100 p-3 rounded-xl bg-white shadow-sm text-sm">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            inv.solution_type === 'ช่วยเหลือ' ? 'bg-pink-100 text-pink-700' : 
-                            inv.solution_type === 'ให้คำแนะนำ' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {inv.solution_type}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {inv.assistance_date ? new Date(inv.assistance_date).toLocaleDateString('th-TH') : '-'}
-                          </span>
-                        </div>
-                        
-                        <p className="text-slate-600 text-xs mt-2 flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" /> หน่วยงาน: {inv.agency || '-'}
-                        </p>
-                        {inv.aid_category && (
-                          <p className="text-slate-600 text-xs mt-1">
-                            🎁 สิ่งของ: {inv.aid_category} ({inv.aid_quantity} {inv.aid_unit})
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center border border-dashed border-slate-200">
-                    ยังไม่มีการบันทึกการช่วยเหลือ
-                  </p>
-                )}
               </div>
 
               <button onClick={() => window.open(`/person/${selected.id}/print`, '_blank')} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-slate-900 transition-colors">

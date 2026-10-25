@@ -1,7 +1,9 @@
+import { supabase } from '@/lib/supabase/client';
+
 export type Role = 'SUPERADMIN' | 'MUNICIPALITY' | 'OSM';
 
 export interface AppUser {
-  id: string;
+  id?: string;
   username: string;
   password?: string;
   role: Role;
@@ -9,46 +11,52 @@ export interface AppUser {
   area?: string;
 }
 
-const DEFAULT_USERS: AppUser[] = [
-  { id: '1', username: 'admin', password: '123', role: 'SUPERADMIN', name: 'ผู้ดูแลระบบ' },
-  { id: '2', username: 'mun', password: '123', role: 'MUNICIPALITY', name: 'เจ้าหน้าที่เทศบาล' },
-  { id: '3', username: 'osm', password: '123', role: 'OSM', name: 'อสม. สมศรี', area: 'หมู่ 4' },
-];
-
-export const getUsers = (): AppUser[] => {
-  if (typeof window === 'undefined') return DEFAULT_USERS;
-  try {
-    const saved = localStorage.getItem('app_users');
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
-  } catch (error) {
-    return DEFAULT_USERS;
+// ดึงข้อมูลจาก Supabase
+export const getUsers = async (): Promise<AppUser[]> => {
+  const { data, error } = await supabase().from('app_users').select('*').order('role');
+  if (error) {
+    console.error("Error fetching users:", error);
+    return [];
   }
+  return data || [];
 };
 
-// 👇 เพิ่มฟังก์ชันนี้เพื่อแก้ Error
-export const saveUser = (user: AppUser) => {
-  const users = getUsers();
-  const existingIndex = users.findIndex(u => u.id === user.id);
-  
-  if (existingIndex >= 0) {
-    users[existingIndex] = user;
+// บันทึก/อัปเดต ข้อมูล
+export const saveUser = async (user: AppUser) => {
+  if (user.id) {
+    // ถ้ามี id แปลว่าเป็นการแก้ไข
+    const { error } = await supabase().from('app_users').update({
+      name: user.name,
+      password: user.password,
+      role: user.role,
+      area: user.area || null,
+    }).eq('id', user.id);
+    if (error) throw error;
   } else {
-    users.push({ ...user, id: Date.now().toString() });
+    // ถ้าไม่มี id แปลว่าเพิ่มใหม่
+    const { error } = await supabase().from('app_users').insert([{
+      username: user.username,
+      password: user.password,
+      role: user.role,
+      name: user.name,
+      area: user.area || null,
+    }]);
+    if (error) throw error;
   }
-  localStorage.setItem('app_users', JSON.stringify(users));
 };
 
-// 👇 เพิ่มฟังก์ชันนี้เพื่อแก้ Error
-export const deleteUser = (id: string) => {
-  const users = getUsers().filter(u => u.id !== id);
-  localStorage.setItem('app_users', JSON.stringify(users));
+// ลบข้อมูล
+export const deleteUser = async (id: string) => {
+  const { error } = await supabase().from('app_users').delete().eq('id', id);
+  if (error) throw error;
 };
 
+// ฟังก์ชันเช็ก Auth (ใช้ SessionStorage เหมือนเดิม)
 export const checkAuth = (allowedRoles: Role[]) => {
   if (typeof window === 'undefined') return null;
   const role = sessionStorage.getItem('staff_role') as Role;
   const name = sessionStorage.getItem('staff_name');
-  const username = sessionStorage.getItem('staff_code'); // ใช้ username ในการเช็ก DB
+  const username = sessionStorage.getItem('staff_code');
   const area = sessionStorage.getItem('staff_area');
   
   if (!role || !allowedRoles.includes(role)) return null;

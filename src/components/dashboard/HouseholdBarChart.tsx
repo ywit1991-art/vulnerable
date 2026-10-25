@@ -1,52 +1,87 @@
 'use client';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { VULN, type VulnType } from '@/lib/constants';
+import { useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, LabelList } from 'recharts';
+import { motion } from 'framer-motion';
+import { Building2, Users } from 'lucide-react'; // 👈 ไอคอนสำหรับปุ่ม Toggle
 
-interface Props {
-  barData: any[];
-}
+export default function HouseholdBarChart({ data }: { data: any[] }) {
+  const [viewMode, setViewMode] = useState<'households' | 'members'>('households');
 
-export default function HouseholdBarChart({ barData }: Props) {
-  // ถ้าไม่มีข้อมูล ให้ใช้ข้อมูลจำลอง
-  const displayData = barData && barData.length > 0 ? barData : [
-    { name: 'หมู่ 1', count: 2, ELDERLY: 1, DISABLED: 1, BEDRIDDEN: 0, LOW_INCOME: 0, PREGNANT: 0 },
-    { name: 'หมู่ 2', count: 1, ELDERLY: 0, DISABLED: 1, BEDRIDDEN: 0, LOW_INCOME: 0, PREGNANT: 0 }
-  ];
-
-  const legendItems = Object.keys(VULN) as VulnType[];
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col">
+        <h3 className="font-bold text-slate-800 text-lg mb-4">จำนวนครัวเรือนเปราะบาง</h3>
+        <div className="flex-1 flex items-center justify-center text-slate-400">ไม่มีข้อมูล</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-3xl p-4 md:p-6 shadow-sm border border-slate-100 h-full flex flex-col">
-      <div className="mb-4">
-        <h3 className="font-bold text-slate-800 text-sm md:text-lg">จำนวนครัวเรือนเปราะบาง</h3>
-        <p className="text-slate-500 text-xs md:text-sm mb-3">แยกตามหมู่บ้านและประเภท</p>
-        
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
-          {legendItems.map((key) => (
-            <div key={key} className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: VULN[key].color }} />
-              <span className="text-[10px] md:text-xs text-slate-600">{VULN[key].label}</span>
-            </div>
-          ))}
+    <motion.div 
+      whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0,0,0,0.08)" }}
+      transition={{ duration: 0.3 }}
+      className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col"
+    >
+      {/* 👇 Header และ ปุ่ม Toggle 👇 */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+        <h3 className="font-bold text-slate-800 text-base md:text-lg">
+          {viewMode === 'households' ? 'จำนวนครัวเรือนเปราะบาง' : 'จำนวนสมาชิกกลุ่มเปราะบาง'}
+        </h3>
+        <div className="flex bg-slate-100 p-1 rounded-xl">
+          <button 
+            onClick={() => setViewMode('households')} 
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'households' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Building2 className="w-3.5 h-3.5" /> ครัวเรือน
+          </button>
+          <button 
+            onClick={() => setViewMode('members')} 
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'members' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Users className="w-3.5 h-3.5" /> สมาชิก
+          </button>
         </div>
       </div>
 
-      <div className="flex-1 min-h-[200px] w-full">
+      <div className="flex-1" suppressHydrationWarning>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={displayData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
-            <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
             
-            <Bar dataKey="ELDERLY" name={VULN.ELDERLY.label} stackId="a" fill={VULN.ELDERLY.color} isAnimationActive={true} animationDuration={1000} />
-            <Bar dataKey="DISABLED" name={VULN.DISABLED.label} stackId="a" fill={VULN.DISABLED.color} isAnimationActive={true} animationDuration={1000} />
-            <Bar dataKey="BEDRIDDEN" name={VULN.BEDRIDDEN.label} stackId="a" fill={VULN.BEDRIDDEN.color} isAnimationActive={true} animationDuration={1000} />
-            <Bar dataKey="LOW_INCOME" name={VULN.LOW_INCOME.label} stackId="a" fill={VULN.LOW_INCOME.color} isAnimationActive={true} animationDuration={1000} />
-            <Bar dataKey="PREGNANT" name={VULN.PREGNANT.label} stackId="a" fill={VULN.PREGNANT.color} isAnimationActive={true} animationDuration={1000} radius={[4, 4, 0, 0]} />
+            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `หมู่ ${value}`} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} allowDecimals={false} />
+            
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+            
+            {/* 👇 สลับการแสดงผลตามโหมด 👇 */}
+            {viewMode === 'households' ? (
+              // โหมดครัวเรือน: แท่งเดียว บอกจำนวนบ้าน
+              <Bar dataKey="households" name="จำนวนครัวเรือน" fill="#0EA5E9" radius={[4, 4, 0, 0]} barSize={30} isAnimationActive={true} animationDuration={1000}>
+                <LabelList dataKey="households" position="top" fill="#EC4899" fontSize={13} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+              </Bar>
+            ) : (
+              // โหมดสมาชิก: กราฟแท่งซ้อน แยกประเภท
+              <>
+                <Bar dataKey="ELDERLY" name="ผู้สูงอายุ" stackId="a" fill="#A855F7" barSize={20} isAnimationActive={true} animationBegin={0} animationDuration={1000}>
+                  <LabelList dataKey="ELDERLY" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                </Bar>
+                <Bar dataKey="DISABLED" name="ผู้พิการ" stackId="a" fill="#F97316" barSize={20} isAnimationActive={true} animationBegin={200} animationDuration={1000}>
+                  <LabelList dataKey="DISABLED" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                </Bar>
+                <Bar dataKey="BEDRIDDEN" name="ผู้ป่วยติดเตียง" stackId="a" fill="#EF4444" barSize={20} isAnimationActive={true} animationBegin={400} animationDuration={1000}>
+                  <LabelList dataKey="BEDRIDDEN" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                </Bar>
+                <Bar dataKey="LOW_INCOME" name="รายได้น้อย" stackId="a" fill="#F59E0B" barSize={20} isAnimationActive={true} animationBegin={600} animationDuration={1000}>
+                  <LabelList dataKey="LOW_INCOME" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                </Bar>
+                <Bar dataKey="PREGNANT" name="ตั้งครรภ์" stackId="a" fill="#3B82F6" barSize={20} radius={[4, 4, 0, 0]} isAnimationActive={true} animationBegin={800} animationDuration={1000}>
+                  <LabelList dataKey="PREGNANT" position="center" fill="#fff" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
+                </Bar>
+              </>
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </motion.div>
   );
 }
