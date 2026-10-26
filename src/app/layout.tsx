@@ -24,11 +24,16 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
+// ... โค้ด import ด้านบน ...
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={notoSansThai.variable} suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/apple-icon.png" />
+        {/* 👇 บังคับให้ iOS ใช้รูปนี้เป็นไอคอนและ Splash 👇 */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon.png" />
+        <link rel="apple-touch-startup-image" href="/logo.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className="font-sans antialiased bg-slate-50 min-h-screen" suppressHydrationWarning>
         {children}
