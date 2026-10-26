@@ -80,7 +80,6 @@ export default function PrintPersonPage() {
   return (
     <div className="min-h-screen bg-slate-100 py-4 md:py-10 print:bg-white print:py-0">
       
-      {/* 👇 แถบเครื่องมือ (ปรับให้กะทัดรัดบนมือถือ) 👇 */}
       <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center px-4 print:hidden">
         <button onClick={handleBack} className="flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-white px-3 py-2 md:px-4 md:py-2 rounded-xl shadow-sm transition-colors border border-slate-200 text-sm md:text-base">
           <ArrowLeft className="w-4 h-4" /> ย้อนกลับ
@@ -90,10 +89,8 @@ export default function PrintPersonPage() {
         </button>
       </div>
 
-      {/* 👇 เนื้อหาเอกสาร (ปรับ Padding ให้พอดีจอมือถือ) 👇 */}
       <div className="max-w-[210mm] mx-auto bg-white p-4 md:p-10 shadow-lg print:shadow-none print:p-0 print:max-w-none min-h-[297mm] text-sm md:text-base">
         
-        {/* Header เอกสาร */}
         <div className="flex flex-col md:flex-row items-center gap-4 border-b-2 border-slate-800 pb-4 mb-6 text-center md:text-left">
           <img src="/logo.png" alt="Logo" className="w-16 h-16 md:w-20 md:h-20 object-contain" />
           <div>
@@ -103,10 +100,8 @@ export default function PrintPersonPage() {
           </div>
         </div>
 
-        {/* 1. ข้อมูลส่วนบุคคล */}
         <div className="mb-6">
           <h3 className="font-bold text-base md:text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">1. ข้อมูลส่วนบุคคล</h3>
-          {/* 👇 เปลี่ยนจาก grid-cols-2 เป็น grid-cols-1 บนมือถือ 👇 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 text-sm">
             <p><span className="text-slate-500">ชื่อ-นามสกุล:</span> <strong className="text-slate-900">{data.prefix}{data.first_name} {data.last_name}</strong></p>
             <p><span className="text-slate-500">เลขบัตรประชาชน:</span> {formatNationalId(data.national_id)}</p>
@@ -123,7 +118,6 @@ export default function PrintPersonPage() {
           </div>
         </div>
 
-        {/* 2. ข้อมูลตามแบบประเมิน */}
         <div className="mb-6">
           <h3 className="font-bold text-base md:text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">2. ข้อมูลตามแบบประเมิน</h3>
           
@@ -163,9 +157,23 @@ export default function PrintPersonPage() {
           )}
         </div>
 
-        {/* 3. ประวัติการช่วยเหลือ */}
+        {/* 👇 3. รูปถ่ายสภาพบ้าน/ผู้ป่วย 👇 */}
+        {data.photo_urls && data.photo_urls.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-bold text-base md:text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">3. รูปถ่ายสภาพบ้าน/ผู้ป่วย</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+              {data.photo_urls.map((url: string, idx: number) => (
+                <div key={idx} className="border border-slate-200 rounded-lg overflow-hidden">
+                  <img src={url} alt={`Photo ${idx+1}`} className="w-full h-32 md:h-40 object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 👇 4. ประวัติการช่วยเหลือ 👇 */}
         <div className="mb-8">
-          <h3 className="font-bold text-base md:text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">3. ประวัติการให้ความช่วยเหลือ</h3>
+          <h3 className="font-bold text-base md:text-lg bg-slate-100 p-2 mb-3 border-l-4 border-pink-500">4. ประวัติการให้ความช่วยเหลือ</h3>
           {data.interventions && data.interventions.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-xs md:text-sm text-left border-collapse border border-slate-300 min-w-[400px]">
@@ -192,8 +200,7 @@ export default function PrintPersonPage() {
           )}
         </div>
 
-        {/* 👇 4. ลายเซ็น (เปลี่ยนเป็นแนวตั้งบนมือถือ) 👇 */}
-        <div className="mt-8 md:mt-16 flex flex-col md:flex-row justify-between gap-8 md:gap-0 px-2 md:px-8">
+        <div className="mt-8 md:mt-16 flex flex-col md:flex-row justify-between gap-8 md:gap-0 px-2 md:px-8 page-break-inside-avoid">
           <div className="text-center w-full md:w-64">
             <p className="mb-6 md:mb-8 text-sm text-slate-600">ลงชื่อ ....................................................</p>
             <p className="text-sm font-bold text-slate-800">( {osmName || '...................................................'} )</p>
