@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react'; // 👈 เพิ่ม useRef
+import { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/ui/Navbar';
 import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
@@ -25,16 +25,75 @@ const LocationPicker = dynamic(() => import('@/components/map/LocationPicker'), 
   loading: () => <div className="h-64 w-full bg-slate-100 animate-pulse rounded-2xl" />
 });
 
+const cropAndCompressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject('No ctx');
+
+        const targetRatio = 5 / 4; // 👈 เปลี่ยนเป็นแนวนอน 5:4
+        let cropWidth = img.width;
+        let cropHeight = img.height;
+        let startX = 0;
+        let startY = 0;
+
+        if (img.width / img.height > targetRatio) {
+          cropWidth = img.height * targetRatio;
+          startX = (img.width - cropWidth) / 2;
+        } else {
+          cropHeight = img.width / targetRatio;
+          startY = (img.height - cropHeight) / 2;
+        }
+
+        const maxSize = 800;
+        let finalWidth = cropWidth;
+        let finalHeight = cropHeight;
+        if (finalWidth > maxSize) {
+          finalHeight = finalHeight * (maxSize / finalWidth);
+          finalWidth = maxSize;
+        }
+
+        canvas.width = finalWidth;
+        canvas.height = finalHeight;
+        ctx.drawImage(img, startX, startY, cropWidth, cropHeight, 0, 0, finalWidth, finalHeight);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+const formatPhoneNumber = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  
+  if (digits.startsWith('06') || digits.startsWith('08') || digits.startsWith('09')) {
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  } else {
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5, 9)}`;
+  }
+};
+
 export default function NewPersonWizardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   
-  // State: Wizard
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // State: Data
   const [nationalId, setNationalId] = useState('');
   const [registryData, setRegistryData] = useState<any>(null);
   const [coords, setCoords] = useState({ lat: 19.1750, lng: 99.9150 });
@@ -43,11 +102,8 @@ export default function NewPersonWizardPage() {
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
-  
-  // 👇 แก้ไข useRef สำหรับอัปโหลดรูป 👇
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // State: Sub-forms
   const [disabilityData, setDisabilityData] = useState<DisabilityFormData>({
     nickname: '', maritalStatus: '', education: '', houseStatus: '', houseCondition: '', houseFacilities: [],
     congenitalDiseases: [], medicalRights: [], medicalEquipment: '', healthNeeds: '',
@@ -79,7 +135,6 @@ export default function NewPersonWizardPage() {
     setUser(auth);
   }, []);
 
-  // --- Handlers ---
   const handleSearch = async () => {
     if (nationalId.length !== 13) return toast.error('กรุณากรอกเลขบัตร 13 หลัก');
     setIsSearching(true);
@@ -151,21 +206,28 @@ export default function NewPersonWizardPage() {
     });
   };
 
-  // 👇 ฟังก์ชันจัดการเบอร์โทร (ให้กรอกได้ไม่เกิน 10 หลัก) 👇
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, ''); // เอาเฉพาะตัวเลข
-    const isMobile = /^(06|08|09)/.test(digits);
-    if (digits.length <= (isMobile ? 10 : 9)) {
-      setPhone(digits);
+    const formatted = formatPhoneNumber(e.target.value);
+    if (formatted.replace(/\D/g, '').length <= 10) {
+      setPhone(formatted);
     }
   };
 
-  // 👇 ฟังก์ชันจัดการอัปโหลดรูป 👇
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     if (photos.length + files.length > 3) return toast.error('อัปโหลดได้สูงสุด 3 รูป');
-    setPhotos((prev) => [...prev, ...Array.from(files).map((file) => URL.createObjectURL(file))]);
+    
+    try {
+      const newBase64Images = await Promise.all(
+        Array.from(files).map(file => cropAndCompressImage(file))
+      );
+      setPhotos(prev => [...prev, ...newBase64Images]);
+    } catch (err) {
+      toast.error('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSave = async () => {
@@ -196,8 +258,8 @@ export default function NewPersonWizardPage() {
         latitude: coords.lat,
         longitude: coords.lng,
         note: note,
-        phone: phone,
-        photo_urls: photos, // 👈 บันทึกรูปภาพ
+        phone: phone.replace(/\D/g, ''),
+        photo_urls: photos,
         vulnerabilities: Array.from(selectedVulns), 
         created_by: user.username,
         disability_type: selectedVulns.has('DISABLED') ? disabilityData.disabilityType : null,
@@ -224,8 +286,6 @@ export default function NewPersonWizardPage() {
       <Navbar />
       
       <div className="max-w-2xl mx-auto px-4 mt-6">
-        
-        {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between items-center relative">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-200 -z-10 rounded-full"></div>
@@ -245,11 +305,8 @@ export default function NewPersonWizardPage() {
           </div>
         </div>
 
-        {/* Form Content */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
           <AnimatePresence mode="wait">
-            
-            {/* STEP 1: Search */}
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
@@ -272,7 +329,6 @@ export default function NewPersonWizardPage() {
               </motion.div>
             )}
 
-            {/* STEP 2: Location */}
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
@@ -289,7 +345,6 @@ export default function NewPersonWizardPage() {
               </motion.div>
             )}
 
-            {/* STEP 3: Vulnerability & Assessments */}
             {step === 3 && (
               <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
@@ -328,7 +383,6 @@ export default function NewPersonWizardPage() {
               </motion.div>
             )}
 
-            {/* STEP 4: Contact & Photos */}
             {step === 4 && (
               <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
@@ -337,14 +391,13 @@ export default function NewPersonWizardPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">เบอร์โทรศัพท์ติดต่อ</label>
-                  {/* 👇 แก้ไขช่องเบอร์โทร 👇 */}
                   <input 
                     type="tel" 
                     inputMode="tel" 
                     value={phone} 
                     onChange={handlePhoneChange} 
-                    maxLength={10} 
-                    placeholder="0812345678" 
+                    maxLength={12} 
+                    placeholder="081-234-5678" 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-pink-400 font-medium" 
                   />
                 </div>
@@ -355,42 +408,28 @@ export default function NewPersonWizardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">รูปถ่ายสภาพบ้าน/ผู้ป่วย (สูงสุด 3 รูป)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">รูปถ่ายสภาพบ้าน/ผู้ป่วย (แนวนอน 5:4)</label>
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {photos.map((url, i) => (
-                      <div key={i} className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-slate-200">
-                        <img src={url} alt="preview" className="w-full h-full object-cover" />
-                        <button onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center text-white"><X className="w-3 h-3" /></button>
+                      // 👇 เปลี่ยนกรอบ Preview เป็นแนวนอน 5:4 👇
+                      <div key={i} className="relative w-24 aspect-[5/4] shrink-0 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                        <img src={url} alt={`photo-${i}`} className="w-full h-full object-cover" />
+                        <button onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center text-white z-10"><X className="w-3 h-3" /></button>
                       </div>
                     ))}
                     {photos.length < 3 && (
-                      // 👇 แก้ปุ่มเพิ่มรูปให้เรียก fileInputRef 👇
-                      <button 
-                        onClick={() => fileInputRef.current?.click()} 
-                        className="w-20 h-20 shrink-0 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-pink-400 hover:text-pink-500 transition-colors"
-                      >
+                      <button onClick={() => fileInputRef.current?.click()} className="w-24 aspect-[5/4] shrink-0 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-pink-400 hover:text-pink-500 transition-colors">
                         <ImagePlus className="w-6 h-6 mb-1" /><span className="text-[10px] font-medium">เพิ่มรูป</span>
                       </button>
                     )}
-                    
-                    {/* 👇 เพิ่ม input file ที่ซ่อนไว้ 👇 */}
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      multiple 
-                      className="hidden" 
-                      ref={fileInputRef} 
-                      onChange={handlePhotoUpload} 
-                    />
+                    <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
                   </div>
                 </div>
               </motion.div>
             )}
-
           </AnimatePresence>
         </div>
 
-        {/* Navigation Buttons */}
         <div className="flex gap-3 mt-6">
           {step > 1 && (
             <button onClick={handleBack} className="flex-1 py-3.5 bg-white border-2 border-slate-200 text-slate-600 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
