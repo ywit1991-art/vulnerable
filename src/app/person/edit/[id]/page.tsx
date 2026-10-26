@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
+import NextImage from 'next/image'; // 👈 เปลี่ยนชื่อ Import
 import { ArrowLeft, Check, ImagePlus, X, ShieldCheck, Loader2, Save, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { VULN, type VulnType } from '@/lib/constants';
@@ -13,12 +13,58 @@ import WelfareForm from '@/components/form/WelfareForm';
 import { DisabilityFormData } from '@/types/disability';
 import { ElderlyFormData } from '@/types/elderly';
 import { WelfareFormData } from '@/types/welfare';
-import LoadingScreen from '@/components/ui/LoadingScreen'; // 👈 เพิ่มบรรทัดนี้
+import LoadingScreen from '@/components/ui/LoadingScreen';
 
 const LocationPicker = dynamic(() => import('@/components/map/LocationPicker'), {
   ssr: false,
   loading: () => <div className="h-64 w-full bg-slate-100 animate-pulse rounded-2xl" />,
 });
+
+const cropAndCompressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image(); // 👈 ตอนนี้จะใช้ Native Image ของ Browser แล้ว
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject('No ctx');
+
+        const targetRatio = 5 / 4;
+        let cropWidth = img.width;
+        let cropHeight = img.height;
+        let startX = 0;
+        let startY = 0;
+
+        if (img.width / img.height > targetRatio) {
+          cropWidth = img.height * targetRatio;
+          startX = (img.width - cropWidth) / 2;
+        } else {
+          cropHeight = img.width / targetRatio;
+          startY = (img.height - cropHeight) / 2;
+        }
+
+        const maxSize = 800;
+        let finalWidth = cropWidth;
+        let finalHeight = cropHeight;
+        if (finalWidth > maxSize) {
+          finalHeight = finalHeight * (maxSize / finalWidth);
+          finalWidth = maxSize;
+        }
+
+        canvas.width = finalWidth;
+        canvas.height = finalHeight;
+        ctx.drawImage(img, startX, startY, cropWidth, cropHeight, 0, 0, finalWidth, finalHeight);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
 
 export default function EditPersonPage() {
   const router = useRouter();
@@ -101,11 +147,21 @@ export default function EditPersonPage() {
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     if (photos.length + files.length > 3) return toast.error('อัปโหลดได้สูงสุด 3 รูป');
-    setPhotos((prev) => [...prev, ...Array.from(files).map((file) => URL.createObjectURL(file))]);
+    
+    try {
+      const newBase64Images = await Promise.all(
+        Array.from(files).map(file => cropAndCompressImage(file))
+      );
+      setPhotos(prev => [...prev, ...newBase64Images]);
+    } catch (err) {
+      toast.error('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const toggleVuln = (type: VulnType) => {
@@ -122,13 +178,13 @@ export default function EditPersonPage() {
     setIsSaving(true);
     try {
       const { error } = await supabase().from('vulnerable_persons').update({
-        phone: phone,
+        phone: phone.replace(/\D/g, ''),
         latitude: coords.lat, 
         longitude: coords.lng, 
         photo_urls: photos,
         note: note, 
         vulnerabilities: Array.from(vulns), 
-        disability_type: disabilityData.disabilityType || null,
+        disability_type: vulns.has('DISABLED') ? disabilityData.disabilityType : null,
         disability_profile: vulns.has('DISABLED') ? disabilityData : null,
         elderly_profile: vulns.has('ELDERLY') ? elderlyData : null,
         welfare_profile: (vulns.has('LOW_INCOME') || vulns.has('BEDRIDDEN') || vulns.has('PREGNANT')) ? welfareData : null,
@@ -151,12 +207,14 @@ export default function EditPersonPage() {
       
       <div className="sticky top-0 z-[100] bg-white/90 backdrop-blur-xl border-b border-white/60">
         <div className="max-w-4xl mx-auto px-3 md:px-4 py-2 md:py-3 flex items-center justify-between gap-2">
+          
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <button onClick={() => router.back()} className="p-1.5 md:p-2 hover:bg-slate-100 rounded-full transition-colors shrink-0">
               <ArrowLeft className="w-5 h-5 text-slate-700" />
             </button>
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white shadow-sm border border-slate-100 p-0.5 shrink-0 hidden sm:block">
-               <Image src="/logo.png" alt="logo" width={40} height={40} className="object-contain" />
+               {/* 👇 เปลี่ยนมาใช้ NextImage 👇 */}
+               <NextImage src="/logo.png" alt="logo" width={40} height={40} className="object-contain" />
             </div>
             <div className="min-w-0">
               <h1 className="font-bold text-slate-900 text-sm md:text-lg truncate">แก้ไขข้อมูล</h1>
@@ -165,14 +223,18 @@ export default function EditPersonPage() {
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
              <button 
               onClick={() => { sessionStorage.clear(); router.replace('/'); }} 
-              className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-colors"
+              className="w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 rounded-full md:rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center gap-2 transition-colors font-medium text-sm"
+              title="ออกจากระบบ"
             >
-              <LogOut className="w-4 h-4 md:w-5 md:h-5" />
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className="hidden md:inline">ออกจากระบบ</span>
             </button>
           </div>
+
         </div>
       </div>
 
@@ -232,18 +294,18 @@ export default function EditPersonPage() {
 
         <section className="bg-white rounded-3xl p-5 shadow-soft border border-white/60">
           <h2 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xs">3</span> รูปถ่าย (สูงสุด 3 รูป)
+            <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xs">3</span> รูปถ่าย (แนวนอน 5:4)
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {photos.map((url, i) => (
-              <div key={i} className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-slate-200">
-                <img src={url} alt="preview" className="w-full h-full object-cover" />
-                <button onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center text-white"><X className="w-3 h-3" /></button>
+              <div key={i} className="relative w-24 aspect-[5/4] shrink-0 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                <img src={url} alt="preview" className="w-full h-full object-cover absolute inset-0 z-10" onError={(e) => e.currentTarget.style.display = 'none'} />
+                <button onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center text-white z-20"><X className="w-3 h-3" /></button>
               </div>
             ))}
             {photos.length < 3 && (
-              <button onClick={() => fileInputRef.current?.click()} className="w-24 h-24 shrink-0 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-sky-400 hover:text-sky-500">
-                <ImagePlus className="w-6 h-6 mb-1" /><span className="text-xs font-medium">เพิ่มรูป</span>
+              <button onClick={() => fileInputRef.current?.click()} className="w-24 aspect-[5/4] shrink-0 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-sky-400 hover:text-sky-500 transition-colors">
+                <ImagePlus className="w-6 h-6 mb-1" /><span className="text-[10px] font-medium">เพิ่มรูป</span>
               </button>
             )}
             <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
