@@ -1,11 +1,8 @@
-import '@fontsource/noto-sans-thai/300.css';
-import '@fontsource/noto-sans-thai/400.css';
-import '@fontsource/noto-sans-thai/500.css';
-import '@fontsource/noto-sans-thai/600.css';
-import '@fontsource/noto-sans-thai/700.css';
+import { Noto_Sans_Thai } from 'next/font/google';
+import { Toaster } from 'sonner';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
-// 👇 ประกาศตัวแปร notoSansThai ตรงนี้ 👇
 const notoSansThai = Noto_Sans_Thai({
   subsets: ['thai', 'latin'],
   weight: ['300', '400', '500', '600', '700'],
@@ -26,16 +23,11 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-// ... โค้ด import ด้านบน ...
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={notoSansThai.variable} suppressHydrationWarning>
       <head>
-        {/* 👇 บังคับให้ iOS ใช้รูปนี้เป็นไอคอนและ Splash 👇 */}
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon.png" />
-        <link rel="apple-touch-startup-image" href="/logo.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="apple-touch-icon" href="/icons/apple-icon.png" />
       </head>
       <body className="font-sans antialiased bg-slate-50 min-h-screen" suppressHydrationWarning>
         {children}

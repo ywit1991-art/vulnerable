@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { LogIn, Users, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion'; // 👈 เพิ่ม Variants
 
 import HouseholdBarChart from '@/components/dashboard/HouseholdBarChart';
 import AgeBarChart from '@/components/dashboard/AgeBarChart';
@@ -129,10 +129,17 @@ export default function HomePage() {
 
   if (isLoading) return <LoadingScreen />;
 
-  // 👇 Animation Variants (ค่อยๆ ลอยขึ้นมา)
-  const fadeUpVariant = {
+  // 👇 กำหนด Type Variants ชัดเจน เพื่อไม่ให้ Framer Motion ฟ้อง Error 👇
+  const fadeUpVariant: Variants = {
     hidden: { opacity: 0, y: 40 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { 
+        duration: 0.6, 
+        ease: "easeOut" // ตอนนี้ TypeScript จะรู้แล้วว่านี่คือ Easing ที่ถูกต้อง
+      } 
+    }
   };
 
   return (
@@ -167,12 +174,11 @@ export default function HomePage() {
         
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 items-stretch">
           
-          {/* 👇 กล่องที่ 1: ภาพรวมหลัก (เพิ่ม whileInView) 👇 */}
           <motion.div 
             variants={fadeUpVariant} 
             initial="hidden" 
             whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }} // 👈 ทำงานเมื่อเห็น 10% ของกล่อง และทำครั้งเดียว
+            viewport={{ once: true, amount: 0.1 }}
             className="md:col-span-8 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white flex flex-col justify-between h-full"
           >
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
@@ -214,13 +220,12 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* 👇 กล่องที่ 2: สถานะทับซ้อน (เพิ่ม whileInView + Delay เล็กน้อย) 👇 */}
           <motion.div 
             variants={fadeUpVariant} 
             initial="hidden" 
             whileInView="visible" 
             viewport={{ once: true, amount: 0.1 }}
-            transition={{ delay: 0.2 }} // 👈 ให้ขึ้นมาช้ากว่ากล่องแรกนิดนึง
+            transition={{ delay: 0.2 }}
             className="md:col-span-4 bg-gradient-to-br from-[#1e293b] to-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-lg text-white relative overflow-hidden flex flex-col justify-between h-full"
           >
             <div className="absolute -right-4 -top-4 opacity-5"><ShieldAlert className="w-48 h-48" /></div>
@@ -246,7 +251,6 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* 👇 กล่องที่ 3: แผนที่ (เพิ่ม whileInView) 👇 */}
           <motion.div 
             variants={fadeUpVariant} 
             initial="hidden" 
@@ -262,7 +266,6 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* 👇 กล่องที่ 4: กราฟครัวเรือน/สมาชิก (เพิ่ม whileInView + Delay) 👇 */}
           <motion.div 
             variants={fadeUpVariant} 
             initial="hidden" 
@@ -274,7 +277,6 @@ export default function HomePage() {
             <HouseholdBarChart data={villageData} />
           </motion.div>
 
-          {/* 👇 กล่องที่ 5: กราฟอายุ (เพิ่ม whileInView) 👇 */}
           <motion.div 
             variants={fadeUpVariant} 
             initial="hidden" 
@@ -285,7 +287,6 @@ export default function HomePage() {
             <AgeBarChart data={ageData} />
           </motion.div>
 
-          {/* 👇 กล่องที่ 6: กราฟสถานะ (เพิ่ม whileInView + Delay) 👇 */}
           <motion.div 
             variants={fadeUpVariant} 
             initial="hidden" 
