@@ -3,37 +3,43 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { buildMarkerIcon } from './MarkerIcon';
 import { MUNICIPALITY_OFFICE } from '@/lib/constants';
-import type { Person } from '@/types';
 import { useEffect } from 'react';
 import L from 'leaflet';
 
 interface Props {
-  persons: Person[];
-  onSelect: (p: Person) => void;
+  persons: any[];
+  onSelect: (p: any) => void;
 }
 
-// ฟังก์ชันซูมเข้าหาหมุด
-function FitBounds({ persons }: { persons: Person[] }) {
+function FitBounds({ persons }: { persons: any[] }) {
   const map = useMap();
   useEffect(() => {
-    // กรองเอาเฉพาะที่มีพิกัดเป็นตัวเลขจริงๆ
-    const validPersons = persons.filter(p => !isNaN(Number(p.latitude)) && !isNaN(Number(p.longitude)));
-    
-    if (validPersons.length > 0) {
-      const bounds = L.latLngBounds(validPersons.map(p => [Number(p.latitude), Number(p.longitude)]));
-      // ซูมแบบนุ่มนวล
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    if (persons.length > 0) {
+      const validPersons = persons.filter(p => p.latitude && p.longitude);
+      if (validPersons.length > 0) {
+        const bounds = L.latLngBounds(validPersons.map(p => [p.latitude, p.longitude]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
     }
   }, [persons, map]);
   return null;
 }
 
+// 👇 พิกัดขอบเขตตำบลท่าวังทอง (โดยประมาณ) 👇
+const THAWANGTHONG_BOUNDS: L.LatLngBoundsExpression = [
+  [19.130, 99.850], // ตะวันตกเฉียงใต้ (South-West)
+  [19.250, 99.960]  // ตะวันออกเฉียงเหนือ (North-East)
+];
+
 export default function MapView({ persons, onSelect }: Props) {
   return (
-    <div className="absolute inset-0 z-0">
+    <div className="absolute inset-0">
       <MapContainer
         center={[MUNICIPALITY_OFFICE.lat, MUNICIPALITY_OFFICE.lng]}
         zoom={13}
+        minZoom={11} // 👈 ล็อคไม่ให้ซูมออกไกลกว่าระดับ 11
+        maxBounds={THAWANGTHONG_BOUNDS} // 👈 ล็อคไม่ให้ลากออกนอกตำบล
+        maxBoundsViscosity={1.0} // 👈 บังคับให้แผนที่เด้งกลับมาเมื่อลากออกนอกขอบเขต
         zoomControl={false}
         className="w-full h-full"
       >
@@ -44,24 +50,16 @@ export default function MapView({ persons, onSelect }: Props) {
 
         <FitBounds persons={persons} />
 
-        {/* 👇 วาดหมุดลงบนแผนที่ 👇 */}
-        {persons.map((p) => {
-          const lat = Number(p.latitude);
-          const lng = Number(p.longitude);
-
-          // ถ้าพิกัดไม่ถูกต้อง ให้ข้ามไป
-          if (isNaN(lat) || isNaN(lng)) return null;
-
-          return (
+        {persons
+          .filter(p => p.latitude != null && p.longitude != null)
+          .map((p) => (
             <Marker
               key={p.id}
-              position={[lat, lng]}
-              icon={buildMarkerIcon(p.vulnerabilities as any)}
+              position={[p.latitude, p.longitude]}
+              icon={buildMarkerIcon(p.vulnerabilities)} 
               eventHandlers={{ click: () => onSelect(p) }}
-              zIndexOffset={1000} // 👈 ดันให้หมุดอยู่บนสุด ไม่ถูกทับ
             />
-          );
-        })}
+        ))}
       </MapContainer>
     </div>
   );

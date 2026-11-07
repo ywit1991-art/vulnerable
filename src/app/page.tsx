@@ -4,18 +4,18 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { LogIn, Users, ShieldAlert, HeartPulse, UserX } from 'lucide-react';
+import { LogIn, Users, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { motion } from 'framer-motion';
 
 import HouseholdBarChart from '@/components/dashboard/HouseholdBarChart';
 import AgeBarChart from '@/components/dashboard/AgeBarChart';
 import StatusPieChart from '@/components/dashboard/StatusPieChart';
-import LoadingScreen from '@/components/ui/LoadingScreen'; // 👈 เพิ่มบรรทัดนี้เข้ามา
+import LoadingScreen from '@/components/ui/LoadingScreen';
 
 const PublicMap = dynamic(() => import('@/components/map/PublicMap'), { 
   ssr: false,
-  loading: () => <LoadingScreen /> // 👈 ใช้ LoadingScreen ตอนโหลดแผนที่ด้วย
+  loading: () => <LoadingScreen />
 });
 
 export default function HomePage() {
@@ -35,16 +35,11 @@ export default function HomePage() {
         const { data: interventions } = await supabase().from('interventions').select('*');
 
         if (vulnerableData) {
-          // 1. รวมข้อมูลซ้ำ (Deduplication)
           const uniquePersonsMap = new Map();
           vulnerableData.forEach((p: any) => {
             const key = p.national_id || p.id;
             if (!uniquePersonsMap.has(key)) {
-              uniquePersonsMap.set(key, {
-                ...p,
-                vulnerabilities: new Set(p.vulnerabilities || []),
-                record_ids: [p.id]
-              });
+              uniquePersonsMap.set(key, { ...p, vulnerabilities: new Set(p.vulnerabilities || []), record_ids: [p.id] });
             } else {
               const existing = uniquePersonsMap.get(key);
               (p.vulnerabilities || []).forEach((v: string) => existing.vulnerabilities.add(v));
@@ -52,12 +47,8 @@ export default function HomePage() {
             }
           });
 
-          const uniquePersons = Array.from(uniquePersonsMap.values()).map((p: any) => ({
-            ...p,
-            vulnerabilities: Array.from(p.vulnerabilities)
-          }));
+          const uniquePersons = Array.from(uniquePersonsMap.values()).map((p: any) => ({ ...p, vulnerabilities: Array.from(p.vulnerabilities) }));
 
-          // 2. คำนวณสถิติ
           const total = uniquePersons.length;
           const elderly = uniquePersons.filter((p: any) => p.vulnerabilities.includes('ELDERLY')).length;
           const disabled = uniquePersons.filter((p: any) => p.vulnerabilities.includes('DISABLED')).length;
@@ -68,27 +59,20 @@ export default function HomePage() {
           const overlap = uniquePersons.filter((p: any) => p.vulnerabilities.length > 1).length;
           const livesAlone = uniquePersons.filter((p: any) => p.lives_alone === true || p.note?.includes('อยู่คนเดียว')).length;
 
-          // 3. คำนวณรอรับความช่วยเหลือ
           const assistedNationalIds = new Set();
           interventions?.forEach((inv: any) => {
             const person = vulnerableData.find((p: any) => p.id === inv.person_id);
-            if (person && person.national_id) {
-              assistedNationalIds.add(person.national_id);
-            }
+            if (person && person.national_id) assistedNationalIds.add(person.national_id);
           });
           const pending = uniquePersons.filter((p: any) => !assistedNationalIds.has(p.national_id)).length;
 
           setStats({ total, elderly, disabled, bedridden, lowIncome, pregnant, pending, overlap, livesAlone });
 
-          // 4. คำนวณหมู่บ้าน
           const villages = Array.from({ length: 14 }).map((_, i: any) => {
             const moo = i + 1;
             const mooData = uniquePersons.filter((v: any) => {
               const cleanVulnId = String(v.national_id).replace(/\D/g, '');
-              const regInfo = registryData?.find((r: any) => {
-                const cleanRegId = String(r.national_id).replace(/\D/g, '');
-                return cleanRegId === cleanVulnId && cleanRegId !== '';
-              });
+              const regInfo = registryData?.find((r: any) => String(r.national_id).replace(/\D/g, '') === cleanVulnId);
               return regInfo && String(regInfo.village_no).trim() === String(moo);
             });
 
@@ -96,14 +80,12 @@ export default function HomePage() {
             mooData.forEach((v: any) => {
               const cleanVulnId = String(v.national_id).replace(/\D/g, '');
               const regInfo = registryData?.find((r: any) => String(r.national_id).replace(/\D/g, '') === cleanVulnId);
-              const houseKey = regInfo?.house_code || regInfo?.house_no || v.note; 
+              let houseKey = regInfo?.house_code ? String(regInfo.house_code).trim() : regInfo?.house_no ? String(regInfo.house_no).trim() : v.national_id;
               if (houseKey) uniqueHouseholds.add(houseKey);
             });
 
             return {
-              id: moo, name: `${moo}`, 
-              households: uniqueHouseholds.size,
-              members: mooData.length,
+              id: moo, name: `${moo}`, households: uniqueHouseholds.size, members: mooData.length,
               ELDERLY: mooData.filter((p: any) => p.vulnerabilities.includes('ELDERLY')).length,
               DISABLED: mooData.filter((p: any) => p.vulnerabilities.includes('DISABLED')).length,
               BEDRIDDEN: mooData.filter((p: any) => p.vulnerabilities.includes('BEDRIDDEN')).length,
@@ -111,16 +93,12 @@ export default function HomePage() {
               PREGNANT: mooData.filter((p: any) => p.vulnerabilities.includes('PREGNANT')).length,
             };
           });
-          
           setVillageData(villages.filter((v: any) => v.households > 0 || v.members > 0));
 
-          // 5. คำนวณช่วงอายุ
           const currentYear = new Date().getFullYear();
           const ageGroups = [
-            { name: 'เด็ก (0-14)', min: 0, max: 14 },
-            { name: 'วัยรุ่น (15-24)', min: 15, max: 24 },
-            { name: 'วัยแรงงาน (25-59)', min: 25, max: 59 },
-            { name: 'ผู้สูงอายุ (60-69)', min: 60, max: 69 },
+            { name: 'เด็ก (0-14)', min: 0, max: 14 }, { name: 'วัยรุ่น (15-24)', min: 15, max: 24 },
+            { name: 'วัยแรงงาน (25-59)', min: 25, max: 59 }, { name: 'ผู้สูงอายุ (60-69)', min: 60, max: 69 },
             { name: 'สูงอายุมาก (70+)', min: 70, max: 150 }
           ];
           const aData = ageGroups.map(group => {
@@ -135,132 +113,191 @@ export default function HomePage() {
           });
           setAgeData(aData.filter((group: any) => group.value > 0));
 
-          // 6. คำนวณสถานะ
           setStatusData([
             { name: 'ช่วยเหลือแล้ว', value: Number(total - pending) || 0, color: '#EC4899' },
             { name: 'รอดำเนินการ', value: Number(pending) || 0, color: '#0EA5E9' },
           ]);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error(error);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
-  // 👇 เรียกใช้ LoadingScreen ที่ Import มาแล้ว 👇
   if (isLoading) return <LoadingScreen />;
 
+  // 👇 Animation Variants (ค่อยๆ ลอยขึ้นมา)
+  const fadeUpVariant = {
+    hidden: { opacity: 0, y: 40 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+  };
+
   return (
-    <main className="min-h-screen bg-slate-50 pb-10">
-      <header className="bg-white shadow-sm border-b border-slate-100 sticky top-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-3 md:px-4 py-2 md:py-3 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Logo" width={32} height={32} className="w-8 h-8 md:w-10 md:h-10 object-contain" />
+    <main className="min-h-screen bg-[#f8fafc] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-100/50 via-slate-50 to-sky-100/50 pb-10">
+      
+      <header className="bg-white/80 backdrop-blur-lg border-b border-white/50 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Image 
+              src="/logo.png" 
+              alt="Logo" 
+              width={48} 
+              height={48} 
+              sizes="(max-width: 768px) 40px, 48px"
+              className="object-contain w-10 h-10 md:w-12 md:h-12 drop-shadow-sm" 
+            />
             <div>
-              <h1 className="font-bold text-slate-900 text-sm md:text-base leading-tight">ข้อมูลกลุ่มเปราะบาง</h1>
-              <p className="text-[10px] md:text-xs text-pink-600 font-medium">เทศบาลตำบลท่าวังทอง</p>
+              <h1 className="font-extrabold text-slate-800 text-sm md:text-xl tracking-tight leading-tight">ระบบข้อมูลกลุ่มเปราะบาง</h1>
+              <p className="text-[10px] md:text-sm text-pink-600 font-semibold tracking-wide">เทศบาลตำบลท่าวังทอง</p>
             </div>
           </div>
-          <button onClick={() => router.push('/login')} className="flex items-center gap-1.5 bg-gradient-to-r from-pink-500 to-sky-500 text-white p-2 md:px-4 md:py-2 rounded-lg font-semibold text-xs md:text-sm shadow-md">
-            <LogIn className="w-4 h-4" /> <span className="hidden sm:inline">เข้าสู่ระบบ</span>
+          <button 
+            onClick={() => router.push('/login')} 
+            className="flex items-center gap-1.5 md:gap-2 bg-slate-800 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full font-semibold shadow-lg hover:bg-slate-900 hover:scale-105 transition-all text-xs md:text-sm whitespace-nowrap shrink-0"
+          >
+            <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" /> เข้าสู่ระบบ
           </button>
         </div>
       </header>
 
-      <div className="max-w-[1400px] mx-auto px-3 md:px-4 mt-4 md:mt-6 space-y-3 md:space-y-4">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-4 md:mt-8">
         
-        <motion.div 
-          initial="hidden" animate="visible" 
-          variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3"
-        >
-          <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-gradient-to-r from-pink-500 to-sky-500 rounded-xl md:rounded-2xl p-3 text-white shadow-md flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0"><Users className="w-4 h-4 md:w-5 md:h-5" /></div>
-            <div><p className="text-white/80 text-[10px] md:text-xs mb-0.5">ทั้งหมด</p><h3 className="text-lg md:text-2xl font-bold">{stats.total} <span className="text-[10px] font-normal">ราย</span></h3></div>
-          </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 items-stretch">
           
-          <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-white rounded-xl md:rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0 text-sm md:text-lg">👵</div>
-            <div><p className="text-slate-500 text-[10px] md:text-xs mb-0.5">ผู้สูงอายุ</p><h3 className="text-base md:text-xl font-bold text-slate-800">{stats.elderly} <span className="text-[10px] font-normal text-slate-400">ราย</span></h3></div>
-          </motion.div>
-
-          <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-white rounded-xl md:rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-50 flex items-center justify-center shrink-0 text-sm md:text-lg">♿</div>
-            <div><p className="text-slate-500 text-[10px] md:text-xs mb-0.5">ผู้พิการ</p><h3 className="text-base md:text-xl font-bold text-slate-800">{stats.disabled} <span className="text-[10px] font-normal text-slate-400">ราย</span></h3></div>
-          </motion.div>
-
-          <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-white rounded-xl md:rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0 text-sm md:text-lg">🛏️</div>
-            <div><p className="text-slate-500 text-[10px] md:text-xs mb-0.5">ติดเตียง</p><h3 className="text-base md:text-xl font-bold text-slate-800">{stats.bedridden} <span className="text-[10px] font-normal text-slate-400">ราย</span></h3></div>
-          </motion.div>
-
-          <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-white rounded-xl md:rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-yellow-50 flex items-center justify-center shrink-0 text-sm md:text-lg">💰</div>
-            <div><p className="text-slate-500 text-[10px] md:text-xs mb-0.5">รายได้น้อย</p><h3 className="text-base md:text-xl font-bold text-slate-800">{stats.lowIncome} <span className="text-[10px] font-normal text-slate-400">ราย</span></h3></div>
-          </motion.div>
-
-          <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-white rounded-xl md:rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0 text-sm md:text-lg">🤰</div>
-            <div><p className="text-slate-500 text-[10px] md:text-xs mb-0.5">ตั้งครรภ์</p><h3 className="text-base md:text-xl font-bold text-slate-800">{stats.pregnant} <span className="text-[10px] font-normal text-slate-400">ราย</span></h3></div>
-          </motion.div>
-        </motion.div>
-
-        <div className="grid grid-cols-3 gap-1.5 md:gap-3">
-          <div className="bg-[#1e293b] rounded-xl md:rounded-2xl p-2 md:p-4 text-white shadow-md flex flex-col md:flex-row items-center md:items-start justify-center md:justify-start gap-1 md:gap-3 text-center md:text-left">
-            <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-4 h-4 md:w-5 md:h-5 text-pink-400" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-slate-300 text-[9px] md:text-xs mb-0.5 leading-tight">รอรับความช่วยเหลือ</p>
-              <h3 className="text-base md:text-xl font-bold leading-tight">{stats.pending} <span className="text-[10px] md:text-xs font-normal">ราย</span></h3>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row items-center md:items-start justify-center md:justify-start gap-1 md:gap-3 text-center md:text-left">
-            <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-pink-50 flex items-center justify-center shrink-0">
-              <HeartPulse className="w-4 h-4 md:w-5 md:h-5 text-pink-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-slate-500 text-[9px] md:text-xs mb-0.5 leading-tight">เปราะบางทับซ้อน (2+ ด้าน)</p>
-              <h3 className="text-base md:text-xl font-bold text-slate-800 leading-tight">{stats.overlap} <span className="text-[10px] md:text-xs font-normal text-slate-400">ราย</span></h3>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row items-center md:items-start justify-center md:justify-start gap-1 md:gap-3 text-center md:text-left">
-            <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-sky-50 flex items-center justify-center shrink-0">
-              <UserX className="w-4 h-4 md:w-5 md:h-5 text-sky-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-slate-500 text-[9px] md:text-xs mb-0.5 leading-tight">ใช้ชีวิตลำพัง (เสี่ยงสูง)</p>
-              <h3 className="text-base md:text-xl font-bold text-slate-800 leading-tight">{stats.livesAlone} <span className="text-[10px] md:text-xs font-normal text-slate-400">ราย</span></h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-          {/* 👇 เปลี่ยนเป็น motion.div และใส่ Hover Effect 👇 */}
+          {/* 👇 กล่องที่ 1: ภาพรวมหลัก (เพิ่ม whileInView) 👇 */}
           <motion.div 
-            whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0,0,0,0.08)" }}
-            transition={{ duration: 0.3 }}
-            className="bg-white p-2 md:p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col h-[300px] md:h-[400px]"
+            variants={fadeUpVariant} 
+            initial="hidden" 
+            whileInView="visible" 
+            viewport={{ once: true, amount: 0.1 }} // 👈 ทำงานเมื่อเห็น 10% ของกล่อง และทำครั้งเดียว
+            className="md:col-span-8 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white flex flex-col justify-between h-full"
           >
-            <h2 className="font-bold text-sm md:text-base text-slate-800 flex items-center gap-2 px-1 mb-2"><span className="text-pink-500">📍</span> แผนที่ความหนาแน่น</h2>
-            <div className="relative w-full flex-1 rounded-xl overflow-hidden border border-slate-100">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+              <div>
+                <p className="text-slate-500 text-sm md:text-base font-medium mb-1">ผู้ลงทะเบียนเปราะบางทั้งหมด</p>
+                <h2 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-sky-500 leading-none">
+                  {stats.total} <span className="text-xl md:text-2xl font-bold text-slate-400">ราย</span>
+                </h2>
+              </div>
+              <p className="text-xs md:text-sm text-slate-400 flex items-center gap-1"><Users className="w-4 h-4" /> จากฐานข้อมูลทั้งหมด</p>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 w-full">
+              <div className="bg-orange-50 rounded-xl p-3 flex flex-col items-center justify-center border border-orange-100/50 hover:bg-orange-100/50 transition-colors">
+                <span className="text-2xl mb-1">👵</span>
+                <span className="text-xl font-bold text-orange-600">{stats.elderly}</span>
+                <span className="text-[10px] font-medium text-orange-500 text-center">ผู้สูงอายุ</span>
+              </div>
+              <div className="bg-purple-50 rounded-xl p-3 flex flex-col items-center justify-center border border-purple-100/50 hover:bg-purple-100/50 transition-colors">
+                <span className="text-2xl mb-1">♿</span>
+                <span className="text-xl font-bold text-purple-600">{stats.disabled}</span>
+                <span className="text-[10px] font-medium text-purple-500 text-center">ผู้พิการ</span>
+              </div>
+              <div className="bg-red-50 rounded-xl p-3 flex flex-col items-center justify-center border border-red-100/50 hover:bg-red-100/50 transition-colors">
+                <span className="text-2xl mb-1">🛏️</span>
+                <span className="text-xl font-bold text-red-600">{stats.bedridden}</span>
+                <span className="text-[10px] font-medium text-red-500 text-center">ติดเตียง</span>
+              </div>
+              <div className="bg-yellow-50 rounded-xl p-3 flex flex-col items-center justify-center border border-yellow-100/50 hover:bg-yellow-100/50 transition-colors">
+                <span className="text-2xl mb-1">💰</span>
+                <span className="text-xl font-bold text-yellow-600">{stats.lowIncome}</span>
+                <span className="text-[10px] font-medium text-yellow-500 text-center">รายได้น้อย</span>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-3 flex flex-col items-center justify-center border border-blue-100/50 hover:bg-blue-100/50 transition-colors">
+                <span className="text-2xl mb-1">🤰</span>
+                <span className="text-xl font-bold text-blue-600">{stats.pregnant}</span>
+                <span className="text-[10px] font-medium text-blue-500 text-center">ตั้งครรภ์</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 👇 กล่องที่ 2: สถานะทับซ้อน (เพิ่ม whileInView + Delay เล็กน้อย) 👇 */}
+          <motion.div 
+            variants={fadeUpVariant} 
+            initial="hidden" 
+            whileInView="visible" 
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ delay: 0.2 }} // 👈 ให้ขึ้นมาช้ากว่ากล่องแรกนิดนึง
+            className="md:col-span-4 bg-gradient-to-br from-[#1e293b] to-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-lg text-white relative overflow-hidden flex flex-col justify-between h-full"
+          >
+            <div className="absolute -right-4 -top-4 opacity-5"><ShieldAlert className="w-48 h-48" /></div>
+            
+            <div>
+              <p className="text-slate-300 text-sm md:text-base font-medium mb-1">เปราะบางทับซ้อน (2+ ด้าน)</p>
+              <h2 className="text-5xl md:text-6xl font-black mb-6">{stats.overlap} <span className="text-lg font-normal text-slate-400">ราย</span></h2>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-slate-300 mb-2">
+                <span>สัดส่วนความซับซ้อน</span>
+                <span className="font-bold text-pink-400">{((stats.overlap / (stats.total || 1)) * 100).toFixed(0)}%</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2.5 mb-4">
+                <div className="bg-gradient-to-r from-pink-500 to-pink-400 h-2.5 rounded-full" style={{ width: `${(stats.overlap / (stats.total || 1)) * 100}%` }}></div>
+              </div>
+              
+              <div className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-white/10">
+                <span className="text-xs text-slate-300">รอรับการช่วยเหลือ</span>
+                <span className="font-bold text-white text-lg">{stats.pending} ราย</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 👇 กล่องที่ 3: แผนที่ (เพิ่ม whileInView) 👇 */}
+          <motion.div 
+            variants={fadeUpVariant} 
+            initial="hidden" 
+            whileInView="visible" 
+            viewport={{ once: true, amount: 0.1 }} 
+            className="md:col-span-7 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-white flex flex-col h-[450px] md:h-[500px] overflow-hidden"
+          >
+            <h3 className="font-bold text-slate-800 text-base md:text-lg flex items-center gap-2 p-5 pb-2">
+              <span className="w-2 h-6 bg-pink-500 rounded-full inline-block"></span> แผนที่ความหนาแน่น
+            </h3>
+            <div className="relative flex-1 w-full h-full">
               <PublicMap villages={villageData} />
             </div>
           </motion.div>
-          <div className="h-[300px] md:h-[400px]"><HouseholdBarChart data={villageData} /></div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-          <div className="h-[300px] md:h-[350px]"><AgeBarChart data={ageData} /></div>
-          <div className="h-[300px] md:h-[350px]"><StatusPieChart data={statusData} /></div>
+          {/* 👇 กล่องที่ 4: กราฟครัวเรือน/สมาชิก (เพิ่ม whileInView + Delay) 👇 */}
+          <motion.div 
+            variants={fadeUpVariant} 
+            initial="hidden" 
+            whileInView="visible" 
+            viewport={{ once: true, amount: 0.1 }} 
+            transition={{ delay: 0.2 }}
+            className="md:col-span-5 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-2 shadow-sm border border-white h-[450px] md:h-[500px]"
+          >
+            <HouseholdBarChart data={villageData} />
+          </motion.div>
+
+          {/* 👇 กล่องที่ 5: กราฟอายุ (เพิ่ม whileInView) 👇 */}
+          <motion.div 
+            variants={fadeUpVariant} 
+            initial="hidden" 
+            whileInView="visible" 
+            viewport={{ once: true, amount: 0.1 }} 
+            className="md:col-span-6 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-2 shadow-sm border border-white h-[400px]"
+          >
+            <AgeBarChart data={ageData} />
+          </motion.div>
+
+          {/* 👇 กล่องที่ 6: กราฟสถานะ (เพิ่ม whileInView + Delay) 👇 */}
+          <motion.div 
+            variants={fadeUpVariant} 
+            initial="hidden" 
+            whileInView="visible" 
+            viewport={{ once: true, amount: 0.1 }} 
+            transition={{ delay: 0.2 }}
+            className="md:col-span-6 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-2 shadow-sm border border-white h-[400px]"
+          >
+            <StatusPieChart data={statusData} />
+          </motion.div>
+
         </div>
-        
       </div>
     </main>
   );
