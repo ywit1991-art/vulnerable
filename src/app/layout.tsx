@@ -1,6 +1,8 @@
-import { Noto_Sans_Thai } from 'next/font/google';
-import { Toaster } from 'sonner';
-import type { Metadata, Viewport } from 'next';
+import '@fontsource/noto-sans-thai/300.css';
+import '@fontsource/noto-sans-thai/400.css';
+import '@fontsource/noto-sans-thai/500.css';
+import '@fontsource/noto-sans-thai/600.css';
+import '@fontsource/noto-sans-thai/700.css';
 import './globals.css';
 
 // 👇 ประกาศตัวแปร notoSansThai ตรงนี้ 👇
