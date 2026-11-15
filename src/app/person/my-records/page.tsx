@@ -12,20 +12,14 @@ import InterventionHistoryModal from '@/components/form/InterventionHistoryModal
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// 👇 ฟังก์ชันจัดรูปแบบเบอร์โทรศัพท์ 👇
 const formatPhone = (phone: string) => {
   if (!phone) return '-';
-  const digits = phone.replace(/\D/g, ''); // ตัดอักขระที่ไม่ใช่ตัวเลขออก
-  if (digits.length === 10) {
-    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`; // 0x-xxxx-xxxx
-  }
-  if (digits.length === 9) {
-    return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`; // 0-xxxx-xxxx
-  }
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  if (digits.length === 9) return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`;
   return phone; 
 };
 
-// 👇 ฟังก์ชันจัดรูปแบบเบอร์โทรที่อยู่ในข้อความ (กรณีข้อมูลเก่า) 👇
 const formatPhoneInText = (text: string) => {
   if (!text) return text;
   return text.replace(/(\d{9,10})/g, (match) => formatPhone(match));
@@ -69,6 +63,7 @@ export default function MyRecordsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
+    // 👇 ใช้ Role ใหม่ 👇
     const auth = checkAuth(['trainee', 'staff', 'officer', 'Admin']);
     if (!auth) { window.location.href = '/'; return; }
     setUser(auth);
@@ -83,6 +78,7 @@ export default function MyRecordsPage() {
         .select('*, interventions(*)')
         .order('created_at', { ascending: false });
 
+      // 👇 ใช้ Role ใหม่ในการกรอง 👇
       if (role === 'trainee' || role === 'staff') {
         query = query.eq('created_by', username);
       }
@@ -135,6 +131,7 @@ export default function MyRecordsPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
+      {/* ... (UI เหมือนเดิม) ... */}
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 mt-6">
         
@@ -143,6 +140,7 @@ export default function MyRecordsPage() {
           <input type="text" placeholder="ค้นหาชื่อ..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none focus:border-pink-400 shadow-sm" />
         </div>
 
+        {/* ... (ส่วนแสดงผล List เหมือนเดิม) ... */}
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>
         ) : filteredRecords.length === 0 ? (
@@ -192,10 +190,11 @@ export default function MyRecordsPage() {
                         <span className="text-xs font-medium md:inline hidden">แก้ไข</span>
                       </button>
                       
+                      {/* 👇 ใช้ Role ใหม่ในการเช็คสิทธิ์ลบ 👇 */}
                       {(user.role === 'Admin' || record.created_by === user.username) && (
                         <button onClick={() => handleDeleteClick(record.id, `${record.first_name} ${record.last_name}`)} className="flex-1 md:flex-none px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 flex items-center justify-center gap-1.5 transition-colors" title="ลบข้อมูล">
                           <Trash2 className="w-4 h-4" />
-                          <span className="text-xs font-medium md:hidden lg:inline hidden">ลบ</span>
+                          <span className="text-xs font-medium md:inline hidden">ลบ</span>
                         </button>
                       )}
                     </div>
@@ -210,7 +209,6 @@ export default function MyRecordsPage() {
                       </span>
                     </p>
 
-                    {/* 👇 แสดงเบอร์โทรศัพท์แบบฟอร์แมตใหม่ 👇 */}
                     {record.emergency_phone ? (
                       <p className="text-sm text-slate-600 flex items-start gap-1.5">
                         <Phone className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" /> 
@@ -247,7 +245,7 @@ export default function MyRecordsPage() {
         )}
       </div>
 
-      {/* Modals... (เหมือนเดิม) */}
+      {/* ... Modals ด้านล่างเหมือนเดิม ... */}
       {selectedPerson && (
         <InterventionModal 
           personId={selectedPerson.id} 

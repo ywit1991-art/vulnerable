@@ -5,7 +5,7 @@ import Navbar from '@/components/ui/Navbar';
 import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
-import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown, Users, ArrowLeft, BarChart3 } from 'lucide-react';
+import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown, Users, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { VULN, type VulnType } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
@@ -34,6 +34,7 @@ export default function StaffMapPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
+    // 👇 ใช้ Role ใหม่ 👇
     const auth = checkAuth(['officer', 'manager', 'Admin']);
     if (!auth) { 
       window.location.href = '/'; 
@@ -81,6 +82,8 @@ export default function StaffMapPage() {
     };
     fetchPersons();
   }, []);
+
+  // ... โค้ดที่เหลือในหน้านี้เหมือนเดิม ...
 
   const filteredPersons = useMemo(() => {
     return persons.filter((h: any) => {
