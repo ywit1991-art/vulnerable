@@ -5,7 +5,8 @@ import Navbar from '@/components/ui/Navbar';
 import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
-import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown, Users, ArrowLeft } from 'lucide-react';
+// 👇 เติม BarChart3 เข้ามาใน Import แล้ว 👇
+import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown, Users, ArrowLeft, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { VULN, type VulnType } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
@@ -34,7 +35,7 @@ export default function StaffMapPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
-    // 👇 ใช้ Role ใหม่ 👇
+    // 👇 อัปเดต Role ตาม Type ใหม่ 👇
     const auth = checkAuth(['officer', 'manager', 'Admin']);
     if (!auth) { 
       window.location.href = '/'; 
@@ -83,8 +84,6 @@ export default function StaffMapPage() {
     fetchPersons();
   }, []);
 
-  // ... โค้ดที่เหลือในหน้านี้เหมือนเดิม ...
-
   const filteredPersons = useMemo(() => {
     return persons.filter((h: any) => {
       const matchSearch = h.persons.some((p: any) => 
@@ -116,13 +115,11 @@ export default function StaffMapPage() {
         พบข้อมูลบนแผนที่: {filteredPersons.length} ครัวเรือน
       </div>
 
-      {/* 👇 ส่วน Header และตัวกรอง 👇 */}
       <div className="absolute top-0 left-0 right-0 z-[1000] p-2 md:p-4 pointer-events-none">
         <div className="max-w-[1200px] mx-auto pointer-events-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 overflow-hidden transition-all duration-300">
           
           <div className="flex items-center gap-2 p-2">
             
-            {/* ปุ่มย้อนกลับ (Mobile เป็น Icon ล้วน) */}
             <button 
               onClick={() => router.back()} 
               className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors shrink-0 flex items-center justify-center gap-2"
@@ -132,7 +129,6 @@ export default function StaffMapPage() {
               <span className="hidden md:inline text-sm font-medium">ย้อนกลับ</span>
             </button>
 
-            {/* ช่องค้นหา */}
             <div className="flex-1 flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2.5">
               <Search className="w-4 h-4 text-pink-500 shrink-0" />
               <input type="text" placeholder="ค้นหาชื่อ..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent outline-none text-sm w-full" />
@@ -143,12 +139,10 @@ export default function StaffMapPage() {
               )}
             </div>
             
-            {/* ปุ่มเปิดตัวกรอง (Mobile) */}
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`md:hidden p-2.5 rounded-xl transition-colors shrink-0 ${isFilterOpen ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-600'}`} title="ตัวกรอง">
               <Filter className="w-5 h-5" /> 
             </button>
 
-            {/* ตัวกรอง (Desktop) */}
             <div className="hidden md:flex items-center gap-2">
               <select value={village} onChange={e => setVillage(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none cursor-pointer hover:bg-slate-200 transition-colors">
                 <option value="ALL">ทุกหมู่บ้าน</option>
@@ -173,7 +167,6 @@ export default function StaffMapPage() {
             </div>
           </div>
 
-          {/* 👇 ตัวกรอง (Mobile) - ใช้ไอคอนล้วน 👇 */}
           <div className={`md:hidden px-2 pb-2 overflow-hidden transition-all ${isFilterOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="flex gap-2 mb-2">
               <select value={village} onChange={e => setVillage(e.target.value)} className="flex-1 w-full bg-slate-100 text-xs font-medium rounded-xl px-2 py-2.5 outline-none">
@@ -186,7 +179,6 @@ export default function StaffMapPage() {
               </select>
             </div>
             
-            {/* แถวปุ่มสำหรับมือถือ (เหลือแค่ไอคอน) */}
             <div className="flex gap-2">
               <button onClick={handleClearFilters} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center" title="ล้างค่า">
                 <RotateCcw className="w-4 h-4" /> 
@@ -202,10 +194,8 @@ export default function StaffMapPage() {
         </div>
       </div>
 
-      {/* แผนที่ */}
       <MapView persons={filteredPersons} onSelect={setSelectedHouse} />
 
-      {/* Popup รายละเอียดบ้าน (เหมือนเดิม) */}
       {selectedHouse && (
         <div className="absolute inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedHouse(null)}>
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative animate-slide-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -268,7 +258,6 @@ export default function StaffMapPage() {
         </div>
       )}
 
-      {/* Lightbox รูปภาพ */}
       <AnimatePresence>
         {selectedImage && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-white/90 backdrop-blur-md" onClick={() => setSelectedImage(null)}>
