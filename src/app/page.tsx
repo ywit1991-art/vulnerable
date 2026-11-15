@@ -1,305 +1,144 @@
+// src/app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import Image from 'next/image';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogIn, Users, ShieldAlert } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
-import { motion, Variants } from 'framer-motion'; // 👈 เพิ่ม Variants
+import { motion, AnimatePresence } from 'framer-motion';
+import { KeyRound, UserCircle, LogIn, AlertCircle } from 'lucide-react';
+import { getUsers } from '@/lib/auth';
+import Image from 'next/image';
 
-import HouseholdBarChart from '@/components/dashboard/HouseholdBarChart';
-import AgeBarChart from '@/components/dashboard/AgeBarChart';
-import StatusPieChart from '@/components/dashboard/StatusPieChart';
-import LoadingScreen from '@/components/ui/LoadingScreen';
-
-const PublicMap = dynamic(() => import('@/components/map/PublicMap'), { 
-  ssr: false,
-  loading: () => <LoadingScreen />
-});
-
-export default function HomePage() {
+export default function LoginPage() {
   const router = useRouter();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, elderly: 0, disabled: 0, bedridden: 0, lowIncome: 0, pregnant: 0, pending: 0, overlap: 0, livesAlone: 0 });
-  const [villageData, setVillageData] = useState<any[]>([]);
-  const [ageData, setAgeData] = useState<any[]>([]);
-  const [statusData, setStatusData] = useState<any[]>([]);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [welcomeName, setWelcomeName] = useState('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: vulnerableData } = await supabase().from('vulnerable_persons').select('*');
-        const { data: registryData } = await supabase().from('registry_persons').select('national_id, village_no, house_code, house_no');
-        const { data: interventions } = await supabase().from('interventions').select('*');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      setErrorMessage('กรุณากรอกรหัสผู้ใช้');
+      setShowErrorModal(true);
+      return;
+    }
+    setIsLoading(true);
 
-        if (vulnerableData) {
-          const uniquePersonsMap = new Map();
-          vulnerableData.forEach((p: any) => {
-            const key = p.national_id || p.id;
-            if (!uniquePersonsMap.has(key)) {
-              uniquePersonsMap.set(key, { ...p, vulnerabilities: new Set(p.vulnerabilities || []), record_ids: [p.id] });
-            } else {
-              const existing = uniquePersonsMap.get(key);
-              (p.vulnerabilities || []).forEach((v: string) => existing.vulnerabilities.add(v));
-              existing.record_ids.push(p.id);
-            }
-          });
+    try {
+      const users = await getUsers();
+      const user = users.find(u => u.username === username && u.password === password);
 
-          const uniquePersons = Array.from(uniquePersonsMap.values()).map((p: any) => ({ ...p, vulnerabilities: Array.from(p.vulnerabilities) }));
-
-          const total = uniquePersons.length;
-          const elderly = uniquePersons.filter((p: any) => p.vulnerabilities.includes('ELDERLY')).length;
-          const disabled = uniquePersons.filter((p: any) => p.vulnerabilities.includes('DISABLED')).length;
-          const bedridden = uniquePersons.filter((p: any) => p.vulnerabilities.includes('BEDRIDDEN')).length;
-          const lowIncome = uniquePersons.filter((p: any) => p.vulnerabilities.includes('LOW_INCOME')).length;
-          const pregnant = uniquePersons.filter((p: any) => p.vulnerabilities.includes('PREGNANT')).length;
-          
-          const overlap = uniquePersons.filter((p: any) => p.vulnerabilities.length > 1).length;
-          const livesAlone = uniquePersons.filter((p: any) => p.lives_alone === true || p.note?.includes('อยู่คนเดียว')).length;
-
-          const assistedNationalIds = new Set();
-          interventions?.forEach((inv: any) => {
-            const person = vulnerableData.find((p: any) => p.id === inv.person_id);
-            if (person && person.national_id) assistedNationalIds.add(person.national_id);
-          });
-          const pending = uniquePersons.filter((p: any) => !assistedNationalIds.has(p.national_id)).length;
-
-          setStats({ total, elderly, disabled, bedridden, lowIncome, pregnant, pending, overlap, livesAlone });
-
-          const villages = Array.from({ length: 14 }).map((_, i: any) => {
-            const moo = i + 1;
-            const mooData = uniquePersons.filter((v: any) => {
-              const cleanVulnId = String(v.national_id).replace(/\D/g, '');
-              const regInfo = registryData?.find((r: any) => String(r.national_id).replace(/\D/g, '') === cleanVulnId);
-              return regInfo && String(regInfo.village_no).trim() === String(moo);
-            });
-
-            const uniqueHouseholds = new Set();
-            mooData.forEach((v: any) => {
-              const cleanVulnId = String(v.national_id).replace(/\D/g, '');
-              const regInfo = registryData?.find((r: any) => String(r.national_id).replace(/\D/g, '') === cleanVulnId);
-              let houseKey = regInfo?.house_code ? String(regInfo.house_code).trim() : regInfo?.house_no ? String(regInfo.house_no).trim() : v.national_id;
-              if (houseKey) uniqueHouseholds.add(houseKey);
-            });
-
-            return {
-              id: moo, name: `${moo}`, households: uniqueHouseholds.size, members: mooData.length,
-              ELDERLY: mooData.filter((p: any) => p.vulnerabilities.includes('ELDERLY')).length,
-              DISABLED: mooData.filter((p: any) => p.vulnerabilities.includes('DISABLED')).length,
-              BEDRIDDEN: mooData.filter((p: any) => p.vulnerabilities.includes('BEDRIDDEN')).length,
-              LOW_INCOME: mooData.filter((p: any) => p.vulnerabilities.includes('LOW_INCOME')).length,
-              PREGNANT: mooData.filter((p: any) => p.vulnerabilities.includes('PREGNANT')).length,
-            };
-          });
-          setVillageData(villages.filter((v: any) => v.households > 0 || v.members > 0));
-
-          const currentYear = new Date().getFullYear();
-          const ageGroups = [
-            { name: 'เด็ก (0-14)', min: 0, max: 14 }, { name: 'วัยรุ่น (15-24)', min: 15, max: 24 },
-            { name: 'วัยแรงงาน (25-59)', min: 25, max: 59 }, { name: 'ผู้สูงอายุ (60-69)', min: 60, max: 69 },
-            { name: 'สูงอายุมาก (70+)', min: 70, max: 150 }
-          ];
-          const aData = ageGroups.map(group => {
-            const count = uniquePersons.filter((p: any) => {
-              if (!p.birth_date) return false;
-              const birthYear = new Date(p.birth_date).getFullYear();
-              if (isNaN(birthYear)) return false;
-              const age = currentYear - birthYear;
-              return age >= group.min && age <= group.max;
-            }).length;
-            return { name: group.name, value: count };
-          });
-          setAgeData(aData.filter((group: any) => group.value > 0));
-
-          setStatusData([
-            { name: 'ช่วยเหลือแล้ว', value: Number(total - pending) || 0, color: '#EC4899' },
-            { name: 'รอดำเนินการ', value: Number(pending) || 0, color: '#0EA5E9' },
-          ]);
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
+      if (!user) {
+        setErrorMessage('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+        setShowErrorModal(true);
         setIsLoading(false);
+        return;
       }
-    };
-    fetchData();
-  }, []);
 
-  if (isLoading) return <LoadingScreen />;
+      sessionStorage.setItem('staff_code', user.username);
+      sessionStorage.setItem('staff_role', user.role);
+      sessionStorage.setItem('staff_name', user.name);
+      if (user.area) sessionStorage.setItem('staff_area', user.area);
+      
+      setWelcomeName(user.name);
+      setShowSuccessModal(true);
+      
+// ค้นหาบรรทัด setTimeout ใน handleLogin แล้วเปลี่ยนเป็นแบบนี้:
 
-  // 👇 กำหนด Type Variants ชัดเจน เพื่อไม่ให้ Framer Motion ฟ้อง Error 👇
-  const fadeUpVariant: Variants = {
-    hidden: { opacity: 0, y: 40 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { 
-        duration: 0.6, 
-        ease: "easeOut" // ตอนนี้ TypeScript จะรู้แล้วว่านี่คือ Easing ที่ถูกต้อง
-      } 
+      setTimeout(() => {
+        const role = user.role?.toUpperCase(); // แปลงเป็นตัวใหญ่เพื่อป้องกันการพิมพ์ผิด
+        
+        if (role === 'ADMIN' || role === 'SUPERADMIN') {
+          window.location.replace('/admin'); // เด้งไปหน้าจัดการ
+        } else if (role === 'OFFICER' || role === 'MANAGER' || role === 'MUNICIPALITY') {
+          window.location.replace('/map'); // เด้งไปหน้าแผนที่
+        } else {
+          window.location.replace('/person/new'); // เด้งไปหน้าฟอร์ม (trainee, staff, osm)
+        }
+      }, 2000); // ลดเวลาเหลือ 2 วินาที
+    } catch (error) {
+      setErrorMessage('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+      setShowErrorModal(true);
+      setIsLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-100/50 via-slate-50 to-sky-100/50 pb-10">
-      
-      <header className="bg-white/80 backdrop-blur-lg border-b border-white/50 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 md:gap-3">
-            <Image 
-              src="/logo.png" 
-              alt="Logo" 
-              width={48} 
-              height={48} 
-              sizes="(max-width: 768px) 40px, 48px"
-              className="object-contain w-10 h-10 md:w-12 md:h-12 drop-shadow-sm" 
-            />
-            <div>
-              <h1 className="font-extrabold text-slate-800 text-sm md:text-xl tracking-tight leading-tight">ระบบข้อมูลกลุ่มเปราะบาง</h1>
-              <p className="text-[10px] md:text-sm text-pink-600 font-semibold tracking-wide">เทศบาลตำบลท่าวังทอง</p>
-            </div>
-          </div>
-          <button 
-            onClick={() => router.push('/login')} 
-            className="flex items-center gap-1.5 md:gap-2 bg-slate-800 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full font-semibold shadow-lg hover:bg-slate-900 hover:scale-105 transition-all text-xs md:text-sm whitespace-nowrap shrink-0"
-          >
-            <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" /> เข้าสู่ระบบ
-          </button>
+    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md relative z-10">
+        <div className="text-center mb-10 relative mt-4">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-tr from-pink-400 to-sky-400 rounded-full blur-[60px] opacity-40 animate-pulse pointer-events-none" />
+          <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="relative w-32 h-32 bg-white rounded-full shadow-[0_0_40px_rgba(236,72,153,0.3)] p-0 mx-auto mb-6 flex items-center justify-center z-10 overflow-hidden">
+            <Image src="/logo.png" alt="Logo" width={128} height={128} className="object-contain w-full h-full" priority />
+          </motion.div>
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-sky-600 z-10 relative drop-shadow-sm">
+            เข้าสู่ระบบเจ้าหน้าที่
+          </h1>
         </div>
-      </header>
 
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-4 md:mt-8">
-        
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 items-stretch">
-          
-          <motion.div 
-            variants={fadeUpVariant} 
-            initial="hidden" 
-            whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }}
-            className="md:col-span-8 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white flex flex-col justify-between h-full"
-          >
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-              <div>
-                <p className="text-slate-500 text-sm md:text-base font-medium mb-1">ผู้ลงทะเบียนเปราะบางทั้งหมด</p>
-                <h2 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-sky-500 leading-none">
-                  {stats.total} <span className="text-xl md:text-2xl font-bold text-slate-400">ราย</span>
-                </h2>
-              </div>
-              <p className="text-xs md:text-sm text-slate-400 flex items-center gap-1"><Users className="w-4 h-4" /> จากฐานข้อมูลทั้งหมด</p>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 w-full">
-              <div className="bg-orange-50 rounded-xl p-3 flex flex-col items-center justify-center border border-orange-100/50 hover:bg-orange-100/50 transition-colors">
-                <span className="text-2xl mb-1">👵</span>
-                <span className="text-xl font-bold text-orange-600">{stats.elderly}</span>
-                <span className="text-[10px] font-medium text-orange-500 text-center">ผู้สูงอายุ</span>
-              </div>
-              <div className="bg-purple-50 rounded-xl p-3 flex flex-col items-center justify-center border border-purple-100/50 hover:bg-purple-100/50 transition-colors">
-                <span className="text-2xl mb-1">♿</span>
-                <span className="text-xl font-bold text-purple-600">{stats.disabled}</span>
-                <span className="text-[10px] font-medium text-purple-500 text-center">ผู้พิการ</span>
-              </div>
-              <div className="bg-red-50 rounded-xl p-3 flex flex-col items-center justify-center border border-red-100/50 hover:bg-red-100/50 transition-colors">
-                <span className="text-2xl mb-1">🛏️</span>
-                <span className="text-xl font-bold text-red-600">{stats.bedridden}</span>
-                <span className="text-[10px] font-medium text-red-500 text-center">ติดเตียง</span>
-              </div>
-              <div className="bg-yellow-50 rounded-xl p-3 flex flex-col items-center justify-center border border-yellow-100/50 hover:bg-yellow-100/50 transition-colors">
-                <span className="text-2xl mb-1">💰</span>
-                <span className="text-xl font-bold text-yellow-600">{stats.lowIncome}</span>
-                <span className="text-[10px] font-medium text-yellow-500 text-center">รายได้น้อย</span>
-              </div>
-              <div className="bg-blue-50 rounded-xl p-3 flex flex-col items-center justify-center border border-blue-100/50 hover:bg-blue-100/50 transition-colors">
-                <span className="text-2xl mb-1">🤰</span>
-                <span className="text-xl font-bold text-blue-600">{stats.pregnant}</span>
-                <span className="text-[10px] font-medium text-blue-500 text-center">ตั้งครรภ์</span>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            variants={fadeUpVariant} 
-            initial="hidden" 
-            whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }}
-            transition={{ delay: 0.2 }}
-            className="md:col-span-4 bg-gradient-to-br from-[#1e293b] to-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-lg text-white relative overflow-hidden flex flex-col justify-between h-full"
-          >
-            <div className="absolute -right-4 -top-4 opacity-5"><ShieldAlert className="w-48 h-48" /></div>
-            
+        <div className="bg-white/90 backdrop-blur-xl p-8 rounded-[2rem] shadow-[0_8px_40px_rgb(0,0,0,0.08)] border border-white/60">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <p className="text-slate-300 text-sm md:text-base font-medium mb-1">เปราะบางทับซ้อน (2+ ด้าน)</p>
-              <h2 className="text-5xl md:text-6xl font-black mb-6">{stats.overlap} <span className="text-lg font-normal text-slate-400">ราย</span></h2>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">ชื่อผู้ใช้ (Username)</label>
+              <div className="relative group">
+                <UserCircle className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500" />
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="กรอกชื่อผู้ใช้" className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-50 transition-all font-medium text-slate-800" />
+              </div>
             </div>
-
             <div>
-              <div className="flex justify-between text-xs text-slate-300 mb-2">
-                <span>สัดส่วนความซับซ้อน</span>
-                <span className="font-bold text-pink-400">{((stats.overlap / (stats.total || 1)) * 100).toFixed(0)}%</span>
-              </div>
-              <div className="w-full bg-white/10 rounded-full h-2.5 mb-4">
-                <div className="bg-gradient-to-r from-pink-500 to-pink-400 h-2.5 rounded-full" style={{ width: `${(stats.overlap / (stats.total || 1)) * 100}%` }}></div>
-              </div>
-              
-              <div className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-white/10">
-                <span className="text-xs text-slate-300">รอรับการช่วยเหลือ</span>
-                <span className="font-bold text-white text-lg">{stats.pending} ราย</span>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">รหัสผ่าน</label>
+              <div className="relative group">
+                <KeyRound className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500" />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-50 transition-all font-medium text-slate-800" />
               </div>
             </div>
-          </motion.div>
-
-          <motion.div 
-            variants={fadeUpVariant} 
-            initial="hidden" 
-            whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }} 
-            className="md:col-span-7 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-white flex flex-col h-[450px] md:h-[500px] overflow-hidden"
-          >
-            <h3 className="font-bold text-slate-800 text-base md:text-lg flex items-center gap-2 p-5 pb-2">
-              <span className="w-2 h-6 bg-pink-500 rounded-full inline-block"></span> แผนที่ความหนาแน่น
-            </h3>
-            <div className="relative flex-1 w-full h-full">
-              <PublicMap villages={villageData} />
-            </div>
-          </motion.div>
-
-          <motion.div 
-            variants={fadeUpVariant} 
-            initial="hidden" 
-            whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }} 
-            transition={{ delay: 0.2 }}
-            className="md:col-span-5 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-2 shadow-sm border border-white h-[450px] md:h-[500px]"
-          >
-            <HouseholdBarChart data={villageData} />
-          </motion.div>
-
-          <motion.div 
-            variants={fadeUpVariant} 
-            initial="hidden" 
-            whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }} 
-            className="md:col-span-6 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-2 shadow-sm border border-white h-[400px]"
-          >
-            <AgeBarChart data={ageData} />
-          </motion.div>
-
-          <motion.div 
-            variants={fadeUpVariant} 
-            initial="hidden" 
-            whileInView="visible" 
-            viewport={{ once: true, amount: 0.1 }} 
-            transition={{ delay: 0.2 }}
-            className="md:col-span-6 bg-white/90 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] p-2 shadow-sm border border-white h-[400px]"
-          >
-            <StatusPieChart data={statusData} />
-          </motion.div>
-
+            <button type="submit" disabled={isLoading} className="w-full h-14 mt-2 rounded-xl bg-gradient-to-r from-pink-500 to-sky-500 text-white font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
+              {isLoading ? 'กำลังตรวจสอบ...' : <><LogIn className="w-5 h-5" /> เข้าสู่ระบบ</>}
+            </button>
+          </form>
         </div>
-      </div>
+      </motion.div>
+
+      {/* Error Modal */}
+      <AnimatePresence>
+        {showErrorModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowErrorModal(false)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5 relative">
+                <div className="absolute inset-0 bg-red-100 rounded-full animate-ping opacity-20"></div>
+                <AlertCircle className="w-10 h-10 text-red-500 relative z-10" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">เข้าสู่ระบบไม่สำเร็จ</h2>
+              <p className="text-slate-500 text-sm mb-6 leading-relaxed">{errorMessage}</p>
+              <button onClick={() => setShowErrorModal(false)} className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">ลองใหม่อีกครั้ง</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.8, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
+              <div className="relative w-28 h-28 mx-auto mb-6">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }} className="w-full h-full bg-white rounded-full border-4 border-pink-50 p-2 shadow-xl flex items-center justify-center relative z-10">
+                  <Image src="/logo.png" alt="Logo" width={80} height={80} className="object-contain" />
+                </motion.div>
+              </div>
+              <motion.h2 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="text-2xl font-bold text-slate-800 mb-2">เข้าสู่ระบบสำเร็จ</motion.h2>
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-slate-500 mb-6">ยินดีต้อนรับ<br/><span className="font-bold text-pink-600 text-lg">{welcomeName}</span></motion.p>
+              <div className="w-full bg-sky-50 rounded-full h-2 overflow-hidden">
+                <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.3, ease: "easeInOut" }} className="bg-gradient-to-r from-pink-500 to-sky-500 h-full rounded-full" />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

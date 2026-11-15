@@ -87,3 +87,32 @@
   animation: pin-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   /* ❌ ห้ามมี background: #สีอะไรก็ตาม; ตรงนี้เด็ดขาด เพราะเราจะเขียนทับด้วย Gradient จาก JS */
 }
+
+/* src/app/globals.css */
+
+/* 👇 ทับฟอนต์ของ Leaflet Layers Control 👇 */
+.leaflet-control-layers {
+  font-family: var(--font-noto-sans-thai), system-ui, sans-serif !important;
+  font-size: 14px; /* ปรับขนาดตัวหนังสือให้พอดี */
+  padding: 8px 12px; /* เพิ่มระยะห่างให้ดูไม่อึดอัด */
+  border-radius: 8px; /* ทำให้ขอบมนขึ้นเล็กน้อย */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; /* เพิ่มเงาให้ดูลอยขึ้นมา */
+}
+
+/* ปรับสีและระยะห่างของ Radio Button และข้อความ */
+.leaflet-control-layers-selector {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.leaflet-control-layers label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  cursor: pointer;
+  color: #334155; /* สีเทาเข้ม (slate-700) */
+}
+
+.leaflet-control-layers label:last-child {
+  margin-bottom: 0;
+}

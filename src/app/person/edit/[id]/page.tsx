@@ -1,70 +1,20 @@
+// src/app/person/edit/[id]/page.tsx
 'use client';
-import { useState, useRef, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import NextImage from 'next/image'; // 👈 เปลี่ยนชื่อ Import
-import { ArrowLeft, Check, ImagePlus, X, ShieldCheck, Loader2, Save, LogOut } from 'lucide-react';
-import { toast } from 'sonner';
-import { VULN, type VulnType } from '@/lib/constants';
+import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
-import DisabilityForm from '@/components/form/DisabilityForm';
-import ElderlyForm from '@/components/form/ElderlyForm';
-import WelfareForm from '@/components/form/WelfareForm';
-import { DisabilityFormData } from '@/types/disability';
-import { ElderlyFormData } from '@/types/elderly';
-import { WelfareFormData } from '@/types/welfare';
-import LoadingScreen from '@/components/ui/LoadingScreen';
+import dynamic from 'next/dynamic';
+import { toast } from 'sonner';
+import { Save, UserCircle, MapPin, Loader2, Activity, HeartHandshake, Users, User, Phone, Calendar, ArrowLeft, CheckCircle2, X } from 'lucide-react';
+import { VULN, type VulnType, NEED_OPTIONS } from '@/lib/constants';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const LocationPicker = dynamic(() => import('@/components/map/LocationPicker'), {
   ssr: false,
   loading: () => <div className="h-64 w-full bg-slate-100 animate-pulse rounded-2xl" />,
 });
-
-const cropAndCompressImage = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image(); // 👈 ตอนนี้จะใช้ Native Image ของ Browser แล้ว
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject('No ctx');
-
-        const targetRatio = 5 / 4;
-        let cropWidth = img.width;
-        let cropHeight = img.height;
-        let startX = 0;
-        let startY = 0;
-
-        if (img.width / img.height > targetRatio) {
-          cropWidth = img.height * targetRatio;
-          startX = (img.width - cropWidth) / 2;
-        } else {
-          cropHeight = img.width / targetRatio;
-          startY = (img.height - cropHeight) / 2;
-        }
-
-        const maxSize = 800;
-        let finalWidth = cropWidth;
-        let finalHeight = cropHeight;
-        if (finalWidth > maxSize) {
-          finalHeight = finalHeight * (maxSize / finalWidth);
-          finalWidth = maxSize;
-        }
-
-        canvas.width = finalWidth;
-        canvas.height = finalHeight;
-        ctx.drawImage(img, startX, startY, cropWidth, cropHeight, 0, 0, finalWidth, finalHeight);
-        
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      };
-      img.onerror = (error) => reject(error);
-    };
-    reader.onerror = (error) => reject(error);
-  });
-};
 
 export default function EditPersonPage() {
   const router = useRouter();
@@ -72,73 +22,73 @@ export default function EditPersonPage() {
   const id = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
-  const [staffCode, setStaffCode] = useState('');
-  const [nationalId, setNationalId] = useState('');
-  const [registryData, setRegistryData] = useState<any>(null);
-  const [coords, setCoords] = useState({ lat: 19.1750, lng: 99.9150 });
-  const [vulns, setVulns] = useState<Set<VulnType>>(new Set());
+
+  // 👇 State สำหรับ Success Modal 👇
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // --- Form States ---
+  const [prefix, setPrefix] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthDateStr, setBirthDateStr] = useState(''); 
+  const [familyMembers, setFamilyMembers] = useState<string>('1'); 
   const [phone, setPhone] = useState('');
-  const [note, setNote] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
-  
-  const [disabilityData, setDisabilityData] = useState<DisabilityFormData>({
-    nickname: '', maritalStatus: '', education: '', houseStatus: '', houseCondition: '', houseFacilities: [],
-    congenitalDiseases: [], medicalRights: [], medicalEquipment: '', healthNeeds: '',
-    isRegistered: false, disabilityType: '', disabilityCause: '', disabilityLevel: '', canCommunicate: false,
-    hasCaregiver: false, caregiverName: '', caregiverRelation: '', caregiverPhone: '',
-    occupations: [], incomeLevel: '', familyIncome: '', hasDebt: false, receivedWelfare: [], socialActivities: [], needsVocationalTraining: false,
-    adlScores: {},
-  });
+  const [closePersonName, setClosePersonName] = useState(''); 
+  const [emergencyPhone, setEmergencyPhone] = useState(''); 
 
-  const [elderlyData, setElderlyData] = useState<ElderlyFormData>({
-    maritalStatus: '', occupation: '', communityActivity: '',
-    weight: '', height: '', vision: '', hearing: '', selfRatedHealth: '',
-    diseases: [], physicalProblems: [], exerciseHabit: '', smokingHabit: '', drinkingHabit: '',
-    adlScores: {}, tgdsScores: {},
-    hasFinancialSupport: false, hasCaregiverSupport: false, hasMentalSupport: false,
-  });
+  const [houseNo, setHouseNo] = useState('');
+  const [villageNo, setVillageNo] = useState('');
+  const [landmark, setLandmark] = useState('');
+  const [coords, setCoords] = useState({ lat: 19.1750, lng: 99.9150 });
 
-  const [welfareData, setWelfareData] = useState<WelfareFormData>({
-    hardshipTypes: [], hardshipCauses: [], healthStatus: '', healthStatusDetail: '',
-    governmentNeeds: [], governmentNeedsDetail: '', communityNeeds: [], communityNeedsDetail: '',
-    hasReceivedHelp: false, receivedHelpTypes: [], receivedHelpYear: '', receivedHelpAgency: '',
-    incomeSufficiency: '', expenseSufficiency: '', debtStatus: '',
-    personalHistory: '', familyHistory: '',
-  });
+  const [selectedVulns, setSelectedVulns] = useState<Set<VulnType>>(new Set());
+  const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
+  const [otherNeeds, setOtherNeeds] = useState(''); 
 
   useEffect(() => {
-    const code = sessionStorage.getItem('staff_code');
-    if (!code) { router.replace('/login'); return; }
-    setStaffCode(code);
+    const auth = checkAuth(['trainee', 'staff', 'officer', 'Admin']);
+    if (!auth) {
+      window.location.href = '/';
+      return;
+    }
+    setUser(auth);
     fetchRecord();
-  }, [id, router]);
+  }, [id]);
 
   const fetchRecord = async () => {
     try {
       const { data, error } = await supabase().from('vulnerable_persons').select('*').eq('id', id).single();
       if (error || !data) throw new Error('ไม่พบข้อมูล');
 
-      setNationalId(data.national_id || '');
-      setRegistryData({
-        prefix: data.prefix,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        birth_date: data.birth_date,
-        address: data.note || '',
-      });
-      setCoords({ lat: data.latitude, lng: data.longitude });
-      setVulns(new Set(data.vulnerabilities || []));
+      setPrefix(data.prefix || '');
+      setFirstName(data.first_name || '');
+      setLastName(data.last_name || '');
+      
+      if (data.birth_date) {
+        const date = new Date(data.birth_date);
+        if (!isNaN(date.getTime())) {
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear() + 543;
+          setBirthDateStr(`${day}/${month}/${year}`);
+        }
+      }
+
+      setFamilyMembers(data.family_members ? String(data.family_members) : '1');
       setPhone(data.phone || '');
-      setNote(data.note || '');
-      setPhotos(data.photo_urls || []);
+      setClosePersonName(data.close_person_name || '');
+      setEmergencyPhone(data.emergency_phone || '');
+
+      setHouseNo(data.house_no || '');
+      setVillageNo(data.village_no || '');
+      setCoords({ lat: data.latitude || 19.1750, lng: data.longitude || 99.9150 });
       
-      if (data.disability_profile) setDisabilityData({ ...disabilityData, ...data.disability_profile, adlScores: data.disability_profile.adlScores || {} });
-      if (data.elderly_profile) setElderlyData({ ...elderlyData, ...data.elderly_profile, adlScores: data.elderly_profile.adlScores || {}, tgdsScores: data.elderly_profile.tgdsScores || {} });
-      if (data.welfare_profile) setWelfareData({ ...welfareData, ...data.welfare_profile });
-      
+      setSelectedVulns(new Set(data.vulnerabilities || []));
+      setOtherNeeds(data.note || '');
+
     } catch (err) {
       toast.error('ไม่สามารถโหลดข้อมูลได้');
       router.push('/person/my-records');
@@ -147,176 +97,329 @@ export default function EditPersonPage() {
     }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    if (photos.length + files.length > 3) return toast.error('อัปโหลดได้สูงสุด 3 รูป');
-    
-    try {
-      const newBase64Images = await Promise.all(
-        Array.from(files).map(file => cropAndCompressImage(file))
-      );
-      setPhotos(prev => [...prev, ...newBase64Images]);
-    } catch (err) {
-      toast.error('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val) {
+      const [year, month, day] = val.split('-');
+      const beYear = parseInt(year) + 543;
+      setBirthDateStr(`${day}/${month}/${beYear}`);
+    } else {
+      setBirthDateStr('');
+    }
+  };
+
+  const parseThaiDateToISO = (dateStr: string) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    let [day, month, year] = parts;
+    let y = parseInt(year);
+    if (isNaN(y)) return null;
+    if (y > 2400) y -= 543; 
+    return `${y}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const handlePhoneChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 10) {
+      setter(digits);
     }
   };
 
   const toggleVuln = (type: VulnType) => {
-    setVulns((prev) => {
+    setSelectedVulns((prev) => {
       const next = new Set(prev);
       next.has(type) ? next.delete(type) : next.add(type);
       return next;
     });
   };
 
+  const toggleNeed = (need: string) => {
+    setSelectedNeeds(prev =>
+      prev.includes(need) ? prev.filter(n => n !== need) : [...prev, need]
+    );
+  };
+
   const handleUpdate = async () => {
-    if (vulns.size === 0) return toast.error('กรุณาเลือกประเภทกลุ่มเปราะบางอย่างน้อย 1 ประเภท');
+    if (!firstName || !lastName) return toast.error('กรุณากรอกชื่อและนามสกุล');
+    if (!villageNo) return toast.error('กรุณาระบุหมู่ที่');
+    if (selectedVulns.size === 0) return toast.error('กรุณาเลือกประเภทกลุ่มเปราะบางอย่างน้อย 1 ประเภท');
     
+    if (coords.lat === 19.1750 && coords.lng === 99.9150) {
+      return toast.error('กรุณาลากหมุดหรือคลิกบนแผนที่เพื่อระบุตำแหน่งบ้านให้ชัดเจนก่อนบันทึก');
+    }
+
     setIsSaving(true);
     try {
+      const isoBirthDate = parseThaiDateToISO(birthDateStr);
+      const isLivingAlone = Number(familyMembers) <= 1;
+
+      const noteText = landmark ? `จุดสังเกต: ${landmark}` : '';
+      const allNeeds = [...selectedNeeds];
+      if (otherNeeds.trim()) allNeeds.push(otherNeeds.trim());
+      
+      const needsText = allNeeds.length > 0 ? `[ความต้องการ]: ${allNeeds.join(', ')}` : '';
+      const familyText = !isLivingAlone && closePersonName ? `[ติดต่อฉุกเฉิน]: ${closePersonName} (${emergencyPhone})` : '';
+      const finalNote = [noteText, familyText, needsText].filter(Boolean).join('\n');
+
       const { error } = await supabase().from('vulnerable_persons').update({
-        phone: phone.replace(/\D/g, ''),
-        latitude: coords.lat, 
-        longitude: coords.lng, 
-        photo_urls: photos,
-        note: note, 
-        vulnerabilities: Array.from(vulns), 
-        disability_type: vulns.has('DISABLED') ? disabilityData.disabilityType : null,
-        disability_profile: vulns.has('DISABLED') ? disabilityData : null,
-        elderly_profile: vulns.has('ELDERLY') ? elderlyData : null,
-        welfare_profile: (vulns.has('LOW_INCOME') || vulns.has('BEDRIDDEN') || vulns.has('PREGNANT')) ? welfareData : null,
+        prefix: prefix,
+        first_name: firstName,
+        last_name: lastName,
+        birth_date: isoBirthDate, 
+        phone: phone,
+        family_members: Number(familyMembers) || 1,
+        house_no: houseNo || null,
+        village_no: villageNo || null,
+        close_person_name: isLivingAlone ? null : closePersonName,
+        emergency_phone: isLivingAlone ? null : emergencyPhone,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        note: finalNote,
+        vulnerabilities: Array.from(selectedVulns),
       }).eq('id', id);
 
       if (error) throw error;
-      toast.success('อัปเดตข้อมูลสำเร็จ!');
-      router.push('/person/my-records');
+      
+      // 👇 แสดง Modal แทน Toast 👇
+      setShowSuccessModal(true);
+      
+      // หน่วงเวลา 2 วินาทีก่อนกลับไปหน้าเดิม
+      setTimeout(() => {
+        router.push('/person/my-records');
+      }, 2000);
+
     } catch (error: any) {
-      toast.error('เกิดข้อผิดพลาดในการอัปเดต');
+      console.error(error);
+      toast.error(`ข้อผิดพลาด: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <Loader2 className="w-10 h-10 animate-spin text-pink-500" />
+    </div>
+  );
+
+  const isLivingAlone = Number(familyMembers) <= 1;
 
   return (
-    <main className="min-h-screen bg-gradient-soft pb-20">
+    <main className="min-h-screen bg-slate-50 pb-20">
       
-      <div className="sticky top-0 z-[100] bg-white/90 backdrop-blur-xl border-b border-white/60">
-        <div className="max-w-4xl mx-auto px-3 md:px-4 py-2 md:py-3 flex items-center justify-between gap-2">
-          
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <button onClick={() => router.back()} className="p-1.5 md:p-2 hover:bg-slate-100 rounded-full transition-colors shrink-0">
+      <div className="bg-white shadow-sm border-b border-slate-100 sticky top-0 z-50">
+        <div className="max-w-[1400px] mx-auto px-2 md:px-4 h-14 md:h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
               <ArrowLeft className="w-5 h-5 text-slate-700" />
             </button>
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white shadow-sm border border-slate-100 p-0.5 shrink-0 hidden sm:block">
-               {/* 👇 เปลี่ยนมาใช้ NextImage 👇 */}
-               <NextImage src="/logo.png" alt="logo" width={40} height={40} className="object-contain" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-slate-900 text-sm md:text-lg truncate">แก้ไขข้อมูล</h1>
-              <p className="text-[10px] md:text-[11px] text-sky-600 font-medium flex items-center gap-1 truncate mt-0.5">
-                <ShieldCheck className="w-3 h-3 shrink-0" /> <span className="truncate">แก้ไขโดย: {staffCode}</span>
-              </p>
+            <div>
+              <h1 className="font-bold text-slate-800 text-sm md:text-base leading-tight">แก้ไขข้อมูล</h1>
+              <p className="text-[10px] md:text-xs text-pink-600 font-medium">โดย: {user?.name}</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-             <button 
-              onClick={() => { sessionStorage.clear(); router.replace('/'); }} 
-              className="w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 rounded-full md:rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center gap-2 transition-colors font-medium text-sm"
-              title="ออกจากระบบ"
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">ออกจากระบบ</span>
-            </button>
-          </div>
-
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-4 mt-2">
-        <section className="bg-slate-100 rounded-3xl p-5 border border-slate-200">
-          <h2 className="font-bold text-slate-500 mb-2 text-sm uppercase tracking-wide">ข้อมูลจากทะเบียนราษฎร (ไม่สามารถแก้ไขได้)</h2>
-          <p className="text-lg font-bold text-slate-800">{registryData?.prefix}{registryData?.first_name} {registryData?.last_name}</p>
-          <p className="text-sm text-slate-500">เลขบัตร: {nationalId}</p>
-        </section>
-
-        <section className="bg-white rounded-3xl p-5 shadow-soft border border-white/60">
-          <h2 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xs">1</span> พิกัดบ้าน
+      <div className="max-w-3xl mx-auto px-4 mt-6 space-y-4">
+        
+        {/* Card 1: ข้อมูลส่วนตัวและครอบครัว */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
+            <UserCircle className="w-5 h-5 text-pink-500" /> 1. ข้อมูลส่วนตัวและครอบครัว
           </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+            <div className="md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1">คำนำหน้า</label>
+              <select value={prefix} onChange={e => setPrefix(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400">
+                <option value="">เลือก...</option>
+                <option value="นาย">นาย</option>
+                <option value="นาง">นาง</option>
+                <option value="นางสาว">นางสาว</option>
+                <option value="ด.ช.">ด.ช.</option>
+                <option value="ด.ญ.">ด.ญ.</option>
+              </select>
+            </div>
+            <div className="md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1">ชื่อ *</label>
+              <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="สมชาย" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1">นามสกุล *</label>
+              <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="ใจดี" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">วันเดือนปีเกิด (พ.ศ.)</label>
+              <div className="relative">
+                <input type="text" value={birthDateStr} onChange={e => setBirthDateStr(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-10 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="วว/ดด/ปปปป" maxLength={10}/>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer p-1 rounded hover:bg-slate-200 transition-colors">
+                  <Calendar className="w-5 h-5 text-slate-400" />
+                  <input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={handleDateChange}/>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-slate-400" /> จำนวนสมาชิกในครอบครัว (รวมตัวเอง)
+              </label>
+              <input type="number" min="1" value={familyMembers} onChange={e => setFamilyMembers(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="เช่น 3" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">เบอร์โทรติดต่อ (ผู้เปราะบาง)</label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input type="tel" value={phone} onChange={e => handlePhoneChange(e.target.value, setPhone)} className="w-full pl-9 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="08XXXXXXXX" maxLength={10}/>
+              </div>
+            </div>
+          </div>
+
+          {!isLivingAlone && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-pink-400" /> ชื่อบุคคลใกล้ชิด / ผู้ดูแล
+                </label>
+                <input type="text" value={closePersonName} onChange={e => setClosePersonName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="ชื่อญาติ / ผู้ดูแล" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-pink-400" /> เบอร์โทรบุคคลใกล้ชิด
+                </label>
+                <input type="tel" value={emergencyPhone} onChange={e => handlePhoneChange(e.target.value, setEmergencyPhone)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="08XXXXXXXX" maxLength={10}/>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Card 2: ที่อยู่และพิกัด */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
+            <MapPin className="w-5 h-5 text-pink-500" /> 2. ที่อยู่และพิกัด
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div className="col-span-1 md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1">บ้านเลขที่</label>
+              <input type="text" value={houseNo} onChange={e => setHouseNo(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="123/4" />
+            </div>
+            <div className="col-span-1 md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1">หมู่ที่ *</label>
+              <select value={villageNo} onChange={e => setVillageNo(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400">
+                <option value="">เลือก...</option>
+                {Array.from({ length: 14 }).map((_, i) => (
+                  <option key={i + 1} value={i + 1}>หมู่ {i + 1}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 md:col-span-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1">จุดสังเกต (ถ้ามี)</label>
+              <input type="text" value={landmark} onChange={e => setLandmark(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-pink-400" placeholder="เช่น หลังวัด, บ้านหลังสุดท้าย" />
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-500 mb-2">ลากหมุดหรือคลิกบนแผนที่เพื่อระบุตำแหน่งบ้าน</p>
           <LocationPicker position={coords} setPosition={setCoords} />
-        </section>
-
-        <section className="bg-white rounded-3xl p-5 shadow-soft border border-white/60">
-          <h2 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xs">2</span> ข้อมูลกลุ่มเปราะบาง
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">ประเภท</label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {(Object.keys(VULN) as VulnType[]).map((key) => {
-                  const meta = VULN[key]; const isActive = vulns.has(key);
-                  return (
-                    <button key={key} type="button" onClick={() => toggleVuln(key)} className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all text-left ${isActive ? 'border-transparent text-white shadow-md' : 'border-slate-100 bg-slate-50 text-slate-600'}`} style={isActive ? { backgroundColor: meta.color } : undefined}>
-                      <span className="text-xl">{meta.emoji}</span><span className="text-sm font-medium flex-1">{meta.label}</span>{isActive && <Check className="w-4 h-4 text-white" />}
-                    </button>
-                  );
-                })}
-              </div>
+          
+          <div className="flex gap-2 mt-3">
+            <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2">
+              <label className="block text-[10px] text-slate-500 mb-0.5">Latitude (ละติจูด)</label>
+              <input type="number" step="any" value={coords.lat} onChange={(e) => setCoords({ ...coords, lat: parseFloat(e.target.value) || 0 })} className="w-full bg-transparent text-sm text-slate-700 font-mono outline-none" />
             </div>
-
-            {vulns.has('DISABLED') && (
-              <div className="mt-6 border-t pt-4"><DisabilityForm data={disabilityData} onChange={setDisabilityData} /></div>
-            )}
-            {vulns.has('ELDERLY') && (
-              <div className="mt-6 border-t pt-4"><ElderlyForm data={elderlyData} onChange={setElderlyData} /></div>
-            )}
-            {(vulns.has('LOW_INCOME') || vulns.has('BEDRIDDEN') || vulns.has('PREGNANT')) && (
-              <div className="mt-6 border-t pt-4"><WelfareForm data={welfareData} onChange={setWelfareData} /></div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">เบอร์โทรศัพท์ติดต่อ</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-sky-400" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">หมายเหตุ</label>
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-sky-400 resize-none" />
+            <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2">
+              <label className="block text-[10px] text-slate-500 mb-0.5">Longitude (ลองจิจูด)</label>
+              <input type="number" step="any" value={coords.lng} onChange={(e) => setCoords({ ...coords, lng: parseFloat(e.target.value) || 0 })} className="w-full bg-transparent text-sm text-slate-700 font-mono outline-none" />
             </div>
           </div>
-        </section>
+        </motion.div>
 
-        <section className="bg-white rounded-3xl p-5 shadow-soft border border-white/60">
-          <h2 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xs">3</span> รูปถ่าย (แนวนอน 5:4)
+        {/* Card 3: ประเภทกลุ่มเปราะบาง */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
+            <Activity className="w-5 h-5 text-pink-500" /> 3. ประเภทกลุ่มเปราะบาง *
           </h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {photos.map((url, i) => (
-              <div key={i} className="relative w-24 aspect-[5/4] shrink-0 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-                <img src={url} alt="preview" className="w-full h-full object-cover absolute inset-0 z-10" onError={(e) => e.currentTarget.style.display = 'none'} />
-                <button onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center text-white z-20"><X className="w-3 h-3" /></button>
-              </div>
-            ))}
-            {photos.length < 3 && (
-              <button onClick={() => fileInputRef.current?.click()} className="w-24 aspect-[5/4] shrink-0 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-sky-400 hover:text-sky-500 transition-colors">
-                <ImagePlus className="w-6 h-6 mb-1" /><span className="text-[10px] font-medium">เพิ่มรูป</span>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {(Object.keys(VULN) as VulnType[]).map((key) => (
+              <button key={key} type="button" onClick={() => toggleVuln(key)} className={`p-3 rounded-xl border-2 transition-all flex items-center gap-2 text-left ${selectedVulns.has(key) ? 'border-pink-500 bg-pink-50 text-pink-700 shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+                <span className="text-xl">{VULN[key].emoji}</span>
+                <span className="text-sm font-medium leading-tight">{VULN[key].label}</span>
               </button>
-            )}
-            <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
+            ))}
           </div>
-        </section>
+        </motion.div>
 
-        <button onClick={handleUpdate} disabled={isSaving} className="w-full h-14 rounded-2xl bg-sky-500 text-white font-bold text-lg shadow-[0_8px_32px_rgba(14,165,233,0.35)] hover:scale-[1.02] active:scale-95 transition-transform flex items-center justify-center gap-2 mt-6 disabled:opacity-70">
-          {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-6 h-6" />}
-          บันทึกการแก้ไข
-        </button>
+        {/* Card 4: ความต้องการความช่วยเหลือ */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
+            <HeartHandshake className="w-5 h-5 text-sky-500" /> 4. ความต้องการรับความช่วยเหลือเร่งด่วน
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+            {NEED_OPTIONS.map((need) => (
+              <label key={need} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-colors ${selectedNeeds.includes(need) ? 'bg-sky-50 border-sky-300' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                <input type="checkbox" checked={selectedNeeds.includes(need)} onChange={() => toggleNeed(need)} className="w-4 h-4 accent-sky-500 shrink-0" />
+                <span className="text-sm text-slate-700 font-medium">{need}</span>
+              </label>
+            ))}
+          </div>
+          <div className="pt-3 border-t border-slate-100">
+            <label className="block text-xs font-medium text-slate-700 mb-1">หมายเหตุ / ความต้องการอื่นๆ (ระบุเพิ่มเติม)</label>
+            <textarea value={otherNeeds} onChange={(e) => setOtherNeeds(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-sky-400 resize-none" rows={3} placeholder="ระบุรายละเอียดเพิ่มเติม..." />
+          </div>
+        </motion.div>
+
+        {/* ปุ่มบันทึก */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+          <button onClick={handleUpdate} disabled={isSaving} className="w-full py-4 mt-2 bg-gradient-to-r from-pink-500 to-sky-500 text-white rounded-2xl font-bold text-lg shadow-[0_8px_30px_rgba(236,72,153,0.3)] flex items-center justify-center gap-2 hover:opacity-90 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50">
+            {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />} บันทึกการแก้ไข
+          </button>
+        </motion.div>
       </div>
+
+      {/* 👇 Custom Success Modal 👇 */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.8, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white rounded-[2rem] p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden border border-white/60"
+            >
+              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5 relative">
+                <div className="absolute inset-0 bg-emerald-100 rounded-full animate-ping opacity-30"></div>
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 relative z-10" />
+              </div>
+
+              <h2 className="text-xl font-bold text-slate-800 mb-2">สำเร็จ!</h2>
+              <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                อัปเดตข้อมูลสำเร็จ!<br/>กำลังพากลับไปหน้ารายการ...
+              </p>
+              
+              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }} 
+                  animate={{ width: "100%" }} 
+                  transition={{ duration: 2, ease: "linear" }}
+                  className="bg-gradient-to-r from-pink-500 to-sky-500 h-full rounded-full"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

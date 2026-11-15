@@ -1,6 +1,8 @@
+// src/lib/auth.ts
 import { supabase } from '@/lib/supabase/client';
 
-export type Role = 'SUPERADMIN' | 'MUNICIPALITY' | 'OSM';
+// 👇 เปลี่ยน Role ใหม่ทั้งหมด 👇
+export type Role = 'trainee' | 'staff' | 'officer' | 'manager' | 'Admin';
 
 export interface AppUser {
   id?: string;
@@ -11,7 +13,6 @@ export interface AppUser {
   area?: string;
 }
 
-// ดึงข้อมูลจาก Supabase
 export const getUsers = async (): Promise<AppUser[]> => {
   const { data, error } = await supabase().from('app_users').select('*').order('role');
   if (error) {
@@ -21,10 +22,8 @@ export const getUsers = async (): Promise<AppUser[]> => {
   return data || [];
 };
 
-// บันทึก/อัปเดต ข้อมูล
 export const saveUser = async (user: AppUser) => {
   if (user.id) {
-    // ถ้ามี id แปลว่าเป็นการแก้ไข
     const { error } = await supabase().from('app_users').update({
       name: user.name,
       password: user.password,
@@ -33,7 +32,6 @@ export const saveUser = async (user: AppUser) => {
     }).eq('id', user.id);
     if (error) throw error;
   } else {
-    // ถ้าไม่มี id แปลว่าเพิ่มใหม่
     const { error } = await supabase().from('app_users').insert([{
       username: user.username,
       password: user.password,
@@ -45,13 +43,11 @@ export const saveUser = async (user: AppUser) => {
   }
 };
 
-// ลบข้อมูล
 export const deleteUser = async (id: string) => {
   const { error } = await supabase().from('app_users').delete().eq('id', id);
   if (error) throw error;
 };
 
-// ฟังก์ชันเช็ก Auth (ใช้ SessionStorage เหมือนเดิม)
 export const checkAuth = (allowedRoles: Role[]) => {
   if (typeof window === 'undefined') return null;
   const role = sessionStorage.getItem('staff_role') as Role;

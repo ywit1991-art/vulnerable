@@ -1,10 +1,11 @@
+// src/app/map/page.tsx
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import Navbar from '@/components/ui/Navbar';
 import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
-import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown, Users } from 'lucide-react';
+import { Search, Filter, MapPin, X, Phone, FileText, RotateCcw, LogOut, ChevronDown, Users, ArrowLeft, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { VULN, type VulnType } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
@@ -15,8 +16,8 @@ const MapView = dynamic(() => import('@/components/map/MapView'), { ssr: false }
 const formatPhone = (phone: string) => {
   if (!phone) return '-';
   const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  if (digits.length === 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+  if (digits.length === 10) return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  if (digits.length === 9) return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`;
   return phone; 
 };
 
@@ -33,29 +34,29 @@ export default function StaffMapPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
-    const auth = checkAuth(['MUNICIPALITY', 'OSM']);
-    if (!auth) { window.location.href = '/login'; return; }
+    const auth = checkAuth(['officer', 'manager', 'Admin']);
+    if (!auth) { 
+      window.location.href = '/'; 
+      return; 
+    }
     setUser(auth);
 
     const fetchPersons = async () => {
       const { data } = await supabase().from('vulnerable_persons').select('*, interventions(*)');
-      const { data: registryData } = await supabase().from('registry_persons').select('national_id, house_code, house_no, village_no');
       
-      if (data && registryData) {
+      if (data) {
         const householdsMap = new Map();
 
         data.forEach((p: any) => {
-          const cleanId = String(p.national_id).replace(/\D/g, '');
-          const regInfo = registryData.find((r: any) => String(r.national_id).replace(/\D/g, '') === cleanId);
-          
-          let houseKey = regInfo?.house_code ? String(regInfo.house_code).trim() : '';
-          if (!houseKey) houseKey = regInfo?.house_no ? String(regInfo.house_no).trim() : p.national_id;
+          let houseKey = p.house_no && p.village_no 
+            ? `${p.house_no}-${p.village_no}` 
+            : p.id; 
 
           if (!householdsMap.has(houseKey)) {
             householdsMap.set(houseKey, {
               id: houseKey,
-              house_no: regInfo?.house_no || '-',
-              village_no: regInfo?.village_no || '-',
+              house_no: p.house_no || '-',
+              village_no: p.village_no || '-',
               latitude: p.latitude,
               longitude: p.longitude,
               vulnerabilities: new Set(p.vulnerabilities || []),
@@ -112,10 +113,23 @@ export default function StaffMapPage() {
         พบข้อมูลบนแผนที่: {filteredPersons.length} ครัวเรือน
       </div>
 
+      {/* 👇 ส่วน Header และตัวกรอง 👇 */}
       <div className="absolute top-0 left-0 right-0 z-[1000] p-2 md:p-4 pointer-events-none">
         <div className="max-w-[1200px] mx-auto pointer-events-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 overflow-hidden transition-all duration-300">
           
           <div className="flex items-center gap-2 p-2">
+            
+            {/* ปุ่มย้อนกลับ (Mobile เป็น Icon ล้วน) */}
+            <button 
+              onClick={() => router.back()} 
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors shrink-0 flex items-center justify-center gap-2"
+              title="ย้อนกลับ"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="hidden md:inline text-sm font-medium">ย้อนกลับ</span>
+            </button>
+
+            {/* ช่องค้นหา */}
             <div className="flex-1 flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2.5">
               <Search className="w-4 h-4 text-pink-500 shrink-0" />
               <input type="text" placeholder="ค้นหาชื่อ..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent outline-none text-sm w-full" />
@@ -126,14 +140,12 @@ export default function StaffMapPage() {
               )}
             </div>
             
-            <button 
-              onClick={() => setIsFilterOpen(!isFilterOpen)} 
-              className={`md:hidden flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${isFilterOpen ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-600'}`}
-            >
-              <Filter className="w-4 h-4" /> 
-              <ChevronDown className={`w-3 h-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+            {/* ปุ่มเปิดตัวกรอง (Mobile) */}
+            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`md:hidden p-2.5 rounded-xl transition-colors shrink-0 ${isFilterOpen ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-600'}`} title="ตัวกรอง">
+              <Filter className="w-5 h-5" /> 
             </button>
 
+            {/* ตัวกรอง (Desktop) */}
             <div className="hidden md:flex items-center gap-2">
               <select value={village} onChange={e => setVillage(e.target.value)} className="bg-slate-100 text-sm font-medium rounded-xl px-3 py-2.5 outline-none cursor-pointer hover:bg-slate-200 transition-colors">
                 <option value="ALL">ทุกหมู่บ้าน</option>
@@ -143,14 +155,13 @@ export default function StaffMapPage() {
                 <option value="ALL">ทุกประเภท</option>
                 {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <div className="w-px h-6 bg-slate-200 mx-1"></div>
               
               <button onClick={handleClearFilters} className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors" title="ล้างตัวกรอง">
                 <RotateCcw className="w-4 h-4" /> <span>ล้างค่า</span>
               </button>
               
               <Link href="/municipality/report" className="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-900 transition-colors">
-                <Filter className="w-4 h-4" /> <span>รายงานสถิติ</span>
+                <BarChart3 className="w-4 h-4" /> <span>รายงานสถิติ</span>
               </Link>
               
               <button onClick={handleLogout} className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors" title="ออกจากระบบ">
@@ -159,6 +170,7 @@ export default function StaffMapPage() {
             </div>
           </div>
 
+          {/* 👇 ตัวกรอง (Mobile) - ใช้ไอคอนล้วน 👇 */}
           <div className={`md:hidden px-2 pb-2 overflow-hidden transition-all ${isFilterOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="flex gap-2 mb-2">
               <select value={village} onChange={e => setVillage(e.target.value)} className="flex-1 w-full bg-slate-100 text-xs font-medium rounded-xl px-2 py-2.5 outline-none">
@@ -170,30 +182,30 @@ export default function StaffMapPage() {
                 {Object.entries(VULN).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
-
+            
+            {/* แถวปุ่มสำหรับมือถือ (เหลือแค่ไอคอน) */}
             <div className="flex gap-2">
-              <button onClick={handleClearFilters} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center gap-1.5">
-                <RotateCcw className="w-4 h-4" /> ล้างค่า
+              <button onClick={handleClearFilters} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center" title="ล้างค่า">
+                <RotateCcw className="w-4 h-4" /> 
               </button>
-              <Link href="/municipality/report" className="flex-1 bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold flex justify-center items-center gap-1.5">
-                <Filter className="w-4 h-4" /> รายงานสถิติ
+              <Link href="/municipality/report" className="flex-1 bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold flex justify-center items-center" title="รายงานสถิติ">
+                <BarChart3 className="w-4 h-4" /> 
               </Link>
-              <button onClick={handleLogout} className="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center gap-1.5">
-                <LogOut className="w-4 h-4" /> ออกจากระบบ
+              <button onClick={handleLogout} className="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl text-xs font-medium flex justify-center items-center" title="ออกจากระบบ">
+                <LogOut className="w-4 h-4" /> 
               </button>
             </div>
           </div>
-
         </div>
       </div>
 
+      {/* แผนที่ */}
       <MapView persons={filteredPersons} onSelect={setSelectedHouse} />
 
-      {/* Popup Modal แสดงรายชื่อคนในครัวเรือน */}
+      {/* Popup รายละเอียดบ้าน (เหมือนเดิม) */}
       {selectedHouse && (
         <div className="absolute inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedHouse(null)}>
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative animate-slide-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            
             <div className="p-6 overflow-y-auto">
               <button onClick={() => setSelectedHouse(null)} className="absolute top-4 right-4 bg-slate-100 p-2 rounded-full hover:bg-red-100 hover:text-red-500 transition-colors z-10"><X className="w-4 h-4" /></button>
               
@@ -232,16 +244,7 @@ export default function StaffMapPage() {
                             .filter((url: string) => url && (url.startsWith('data:image') || url.startsWith('http')))
                             .map((url: string, i: number) => (
                               <div key={i} className="w-24 aspect-[5/4] shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 relative group cursor-zoom-in">
-                                <img 
-                                  src={url} 
-                                  alt={`photo-${i}`} 
-                                  className="w-full h-full object-cover absolute inset-0 z-10 hover:opacity-90 transition-opacity" 
-                                  onClick={() => setSelectedImage(url)} 
-                                  onError={(e) => {
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) parent.style.display = 'none';
-                                  }}
-                                />
+                                <img src={url} alt={`photo-${i}`} className="w-full h-full object-cover absolute inset-0 z-10 hover:opacity-90 transition-opacity" onClick={() => setSelectedImage(url)} onError={(e) => { const parent = e.currentTarget.parentElement; if (parent) parent.style.display = 'none'; }}/>
                               </div>
                           ))}
                         </div>
@@ -256,59 +259,28 @@ export default function StaffMapPage() {
                   ))}
                 </div>
               </div>
-              
               <p className="text-xs text-slate-400 text-center">พิกัด: {selectedHouse.latitude}, {selectedHouse.longitude}</p>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* 👇 Image Lightbox Popup (พื้นหลังขาว + ลายน้ำสีแดงจางๆ) 👇 */}
+      {/* Lightbox รูปภาพ */}
       <AnimatePresence>
         {selectedImage && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            // 👇 เปลี่ยนจาก bg-black/80 เป็น bg-white/90 และเพิ่ม blur 👇
-            className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-white/90 backdrop-blur-md"
-            onClick={() => setSelectedImage(null)}
-          >
-            <button 
-              onClick={() => setSelectedImage(null)} 
-              // 👇 ปรับสีปุ่มปิดให้เข้ากับพื้นหลังสว่าง 👇
-              className="absolute top-6 right-6 bg-slate-200/50 hover:bg-slate-300/50 p-2 rounded-full text-slate-700 transition-colors z-50 shadow-sm"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <motion.div 
-              initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }}
-              // 👇 ใส่ padding รอบรูปเพื่อให้ดูเหมือนกรอบรูป 👇
-              className="relative max-w-full max-h-[85vh] rounded-xl overflow-hidden shadow-2xl bg-white p-2 border border-slate-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img 
-                src={selectedImage} 
-                alt="Full size" 
-                className="max-w-full max-h-[80vh] object-contain rounded-lg"
-              />
-              
-              {/* 👇 ลายน้ำ (Watermark) สีแดงจางๆ 👇 */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-white/90 backdrop-blur-md" onClick={() => setSelectedImage(null)}>
+            <button onClick={() => setSelectedImage(null)} className="absolute top-6 right-6 bg-slate-200/50 hover:bg-slate-300/50 p-2 rounded-full text-slate-700 transition-colors z-50 shadow-sm"><X className="w-6 h-6" /></button>
+            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }} className="relative max-w-full max-h-[85vh] rounded-xl overflow-hidden shadow-2xl bg-white p-2 border border-slate-200" onClick={(e) => e.stopPropagation()}>
+              <img src={selectedImage} alt="Full size" className="max-w-full max-h-[80vh] object-contain rounded-lg" />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden p-4">
-                <p 
-                  className="text-red-500/30 font-black text-3xl md:text-5xl text-center rotate-[-30deg] tracking-widest uppercase leading-relaxed"
-                  style={{ textShadow: '0 2px 10px rgba(255,255,255,0.8)' }} // 👈 เงาสีขาวเพื่อให้อ่านง่ายบนพื้นสว่าง
-                >
-                  ข้อมูลใช้ในงานราชการ<br className="hidden md:block" />
-                  ของเทศบาลตำบลท่าวังทองเท่านั้น
+                <p className="text-red-500/30 font-black text-3xl md:text-5xl text-center rotate-[-30deg] tracking-widest uppercase leading-relaxed" style={{ textShadow: '0 2px 10px rgba(255,255,255,0.8)' }}>
+                  ข้อมูลใช้ในงานราชการ<br className="hidden md:block" /> ของเทศบาลตำบลท่าวังทองเท่านั้น
                 </p>
               </div>
-
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
     </main>
   );
 }
