@@ -5,7 +5,7 @@ import Navbar from '@/components/ui/Navbar';
 import { checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Edit, Plus, History, Loader2, Trash2, AlertTriangle, CheckCircle2, X, HeartHandshake, Phone } from 'lucide-react';
+import { Search, MapPin, Edit, Plus, History, Loader2, Trash2, AlertTriangle, CheckCircle2, X, HeartHandshake, Phone, ShieldAlert } from 'lucide-react';
 import { VULN, type VulnType } from '@/lib/constants';
 import InterventionModal from '@/components/form/InterventionModal';
 import InterventionHistoryModal from '@/components/form/InterventionHistoryModal';
@@ -63,7 +63,6 @@ export default function MyRecordsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    // 👇 ใช้ Role ใหม่ 👇
     const auth = checkAuth(['trainee', 'staff', 'officer', 'Admin']);
     if (!auth) { window.location.href = '/'; return; }
     setUser(auth);
@@ -73,12 +72,13 @@ export default function MyRecordsPage() {
   const fetchRecords = async (username: string, role: string) => {
     setIsLoading(true);
     try {
+      // 👇 เพิ่มการจัดเรียงตาม urgency_score (มากไปน้อย) 👇
       let query = supabase()
         .from('vulnerable_persons')
         .select('*, interventions(*)')
+        .order('urgency_score', { ascending: false })
         .order('created_at', { ascending: false });
 
-      // 👇 ใช้ Role ใหม่ในการกรอง 👇
       if (role === 'trainee' || role === 'staff') {
         query = query.eq('created_by', username);
       }
@@ -131,7 +131,6 @@ export default function MyRecordsPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
-      {/* ... (UI เหมือนเดิม) ... */}
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 mt-6">
         
@@ -140,7 +139,6 @@ export default function MyRecordsPage() {
           <input type="text" placeholder="ค้นหาชื่อ..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none focus:border-pink-400 shadow-sm" />
         </div>
 
-        {/* ... (ส่วนแสดงผล List เหมือนเดิม) ... */}
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>
         ) : filteredRecords.length === 0 ? (
@@ -156,15 +154,33 @@ export default function MyRecordsPage() {
           <div className="space-y-4">
             {filteredRecords.map((record: any) => {
               const parsedNote = parseNote(record.note);
+              const isCritical = record.urgency_level === 'CRITICAL';
+              const isUrgent = record.urgency_level === 'URGENT';
 
               return (
-                <div key={record.id} className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                <div key={record.id} className={`bg-white p-4 md:p-5 rounded-3xl shadow-sm border ${isCritical ? 'border-red-300 shadow-red-100' : isUrgent ? 'border-orange-300 shadow-orange-100' : 'border-slate-100'} hover:shadow-md transition-shadow relative overflow-hidden`}>
                   
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3">
+                  {/* แถบสีบอกระดับความเร่งด่วนด้านซ้าย */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isCritical ? 'bg-red-500' : isUrgent ? 'bg-orange-400' : 'bg-transparent'}`} />
+
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3 pl-2">
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-800 break-words whitespace-normal">
-                        {record.prefix}{record.first_name} {record.last_name}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-lg font-bold text-slate-800 break-words whitespace-normal">
+                          {record.prefix}{record.first_name} {record.last_name}
+                        </h3>
+                        {/* 👇 ป้ายบอกระดับความเร่งด่วน 👇 */}
+                        {isCritical && (
+                          <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold animate-pulse flex items-center gap-1">
+                            <ShieldAlert className="w-3 h-3" /> วิกฤต
+                          </span>
+                        )}
+                        {isUrgent && (
+                          <span className="bg-orange-400 text-white px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> เร่งด่วน
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {record.vulnerabilities?.map((v: string) => (
                           <span key={v} className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: VULN[v as VulnType]?.color }}>
@@ -190,7 +206,6 @@ export default function MyRecordsPage() {
                         <span className="text-xs font-medium md:inline hidden">แก้ไข</span>
                       </button>
                       
-                      {/* 👇 ใช้ Role ใหม่ในการเช็คสิทธิ์ลบ 👇 */}
                       {(user.role === 'Admin' || record.created_by === user.username) && (
                         <button onClick={() => handleDeleteClick(record.id, `${record.first_name} ${record.last_name}`)} className="flex-1 md:flex-none px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 flex items-center justify-center gap-1.5 transition-colors" title="ลบข้อมูล">
                           <Trash2 className="w-4 h-4" />
@@ -200,7 +215,7 @@ export default function MyRecordsPage() {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-50 space-y-2">
+                  <div className="pt-3 border-t border-slate-50 space-y-2 pl-2">
                     <p className="text-sm text-slate-600 flex items-start gap-1.5">
                       <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" /> 
                       <span>
@@ -231,6 +246,13 @@ export default function MyRecordsPage() {
                       </div>
                     )}
 
+                    {/* แสดงคะแนน ADL ถ้ามี */}
+                    {record.adl_score > 0 && (
+                      <p className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block mt-1">
+                        ADL: {record.adl_score} คะแนน
+                      </p>
+                    )}
+
                     {record.interventions && record.interventions.length > 0 && (
                       <p className="text-xs text-green-600 font-medium mt-2 bg-green-50 px-2 py-1 rounded inline-block">
                         ✅ ได้รับการช่วยเหลือแล้ว {record.interventions.length} ครั้ง
@@ -245,7 +267,7 @@ export default function MyRecordsPage() {
         )}
       </div>
 
-      {/* ... Modals ด้านล่างเหมือนเดิม ... */}
+      {/* Modals */}
       {selectedPerson && (
         <InterventionModal 
           personId={selectedPerson.id} 

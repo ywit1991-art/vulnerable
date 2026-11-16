@@ -8,9 +8,10 @@ import { supabase } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Save, UserCircle, MapPin, Loader2, Activity, HeartHandshake, Users, User, Phone, Calendar, CheckCircle2, X } from 'lucide-react';
+import { Save, UserCircle, MapPin, Loader2, Activity, HeartHandshake, Users, User, Phone, Calendar, CheckCircle2, X, HeartPulse } from 'lucide-react';
 import { VULN, type VulnType, NEED_OPTIONS } from '@/lib/constants';
 import { motion, AnimatePresence } from 'framer-motion';
+import { calculateUrgencyScore } from '@/lib/urgency';
 
 const LocationPicker = dynamic(() => import('@/components/map/LocationPicker'), {
   ssr: false,
@@ -22,7 +23,6 @@ export default function NewPersonPage() {
   const [user, setUser] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 👇 State สำหรับ Popup แจ้งเตือนสำเร็จ 👇
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedName, setSavedName] = useState('');
 
@@ -44,6 +44,7 @@ export default function NewPersonPage() {
   const [selectedVulns, setSelectedVulns] = useState<Set<VulnType>>(new Set());
   const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
   const [otherNeeds, setOtherNeeds] = useState(''); 
+  const [adlScore, setAdlScore] = useState<string>('');
 
   useEffect(() => {
     const auth = checkAuth(['trainee', 'staff', 'officer', 'Admin']);
@@ -54,34 +55,19 @@ export default function NewPersonPage() {
     setUser(auth);
   }, []);
 
-  // 👇 ฟังก์ชันสำหรับล้างข้อมูลในฟอร์ม (Reset Form) 👇
   const resetForm = () => {
-    setPrefix('');
-    setFirstName('');
-    setLastName('');
-    setBirthDateStr('');
-    setFamilyMembers('1');
-    setPhone('');
-    setClosePersonName('');
-    setEmergencyPhone('');
-    setHouseNo('');
-    setVillageNo('');
-    setLandmark('');
-    setCoords({ lat: 19.1750, lng: 99.9150 });
-    setSelectedVulns(new Set());
-    setSelectedNeeds([]);
-    setOtherNeeds('');
+    setPrefix(''); setFirstName(''); setLastName(''); setBirthDateStr(''); setFamilyMembers('1');
+    setPhone(''); setClosePersonName(''); setEmergencyPhone(''); setHouseNo(''); setVillageNo('');
+    setLandmark(''); setCoords({ lat: 19.1750, lng: 99.9150 }); setSelectedVulns(new Set());
+    setSelectedNeeds([]); setOtherNeeds(''); setAdlScore('');
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (val) {
       const [year, month, day] = val.split('-');
-      const beYear = parseInt(year) + 543;
-      setBirthDateStr(`${day}/${month}/${beYear}`);
-    } else {
-      setBirthDateStr('');
-    }
+      setBirthDateStr(`${day}/${month}/${parseInt(year) + 543}`);
+    } else { setBirthDateStr(''); }
   };
 
   const parseThaiDateToISO = (dateStr: string) => {
@@ -97,9 +83,7 @@ export default function NewPersonPage() {
 
   const handlePhoneChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>) => {
     const digits = value.replace(/\D/g, '');
-    if (digits.length <= 10) {
-      setter(digits);
-    }
+    if (digits.length <= 10) setter(digits);
   };
 
   const toggleVuln = (type: VulnType) => {
@@ -111,9 +95,7 @@ export default function NewPersonPage() {
   };
 
   const toggleNeed = (need: string) => {
-    setSelectedNeeds(prev =>
-      prev.includes(need) ? prev.filter(n => n !== need) : [...prev, need]
-    );
+    setSelectedNeeds(prev => prev.includes(need) ? prev.filter(n => n !== need) : [...prev, need]);
   };
 
   const handleSave = async () => {
@@ -133,10 +115,16 @@ export default function NewPersonPage() {
       const noteText = landmark ? `จุดสังเกต: ${landmark}` : '';
       const allNeeds = [...selectedNeeds];
       if (otherNeeds.trim()) allNeeds.push(otherNeeds.trim());
-      
       const needsText = allNeeds.length > 0 ? `[ความต้องการ]: ${allNeeds.join(', ')}` : '';
       const familyText = !isLivingAlone && closePersonName ? `[ติดต่อฉุกเฉิน]: ${closePersonName} (${emergencyPhone})` : '';
       const finalNote = [noteText, familyText, needsText].filter(Boolean).join('\n');
+
+      const { score, level } = calculateUrgencyScore(
+        Number(adlScore) || 0, 
+        Array.from(selectedVulns), 
+        allNeeds, 
+        Number(familyMembers)
+      );
 
       const { error } = await supabase().from('vulnerable_persons').insert([{
         national_id: null,
@@ -155,14 +143,16 @@ export default function NewPersonPage() {
         note: finalNote,
         vulnerabilities: Array.from(selectedVulns),
         created_by: user.username,
+        adl_score: Number(adlScore) || 0,
+        urgency_score: score,
+        urgency_level: level,
       }]);
 
       if (error) throw error;
 
-      // 👇 เมื่อบันทึกสำเร็จ: แสดง Popup และล้างฟอร์ม 👇
       setSavedName(`${firstName} ${lastName}`);
       setShowSuccessModal(true);
-      resetForm(); // ล้างข้อมูลในฟอร์มเพื่อรอกรอกคนต่อไป
+      resetForm(); 
 
     } catch (error: any) {
       console.error(error);
@@ -174,6 +164,10 @@ export default function NewPersonPage() {
 
   if (!user) return null;
   const isLivingAlone = Number(familyMembers) <= 1;
+  
+  // 👇 ตัวแปรสำหรับเช็คว่าต้องโชว์ ADL ไหม 👇
+  const needsAdlAssessment = ['ELDERLY', 'PATIENTS', 'DISABLED'].some(v => selectedVulns.has(v as VulnType));
+  const adlNum = Number(adlScore);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
@@ -181,7 +175,7 @@ export default function NewPersonPage() {
       
       <div className="max-w-3xl mx-auto px-4 mt-6 space-y-4">
         
-        {/* Card 1: ข้อมูลส่วนตัวและครอบครัว */}
+        {/* Card 1 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
             <UserCircle className="w-5 h-5 text-pink-500" /> 1. ข้อมูลส่วนตัวและครอบครัว
@@ -312,10 +306,46 @@ export default function NewPersonPage() {
           </div>
         </motion.div>
 
-        {/* Card 4: ความต้องการความช่วยเหลือ */}
+        {/* 👇 Card 4 (หรือ 5): ADL (แสดงเฉพาะกลุ่มที่ต้องการ) 👇 */}
+        {needsAdlAssessment && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
+              <HeartPulse className="w-5 h-5 text-orange-500" /> 4. การประเมินการพึ่งพิง (ADL)
+            </h2>
+            
+            <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
+              <label className="block text-sm font-medium text-slate-700 mb-2">คะแนน ADL (ช่วง 0 - 100 คะแนน)</label>
+              <input 
+                type="number" 
+                min="0" 
+                max="100"
+                value={adlScore} 
+                onChange={e => setAdlScore(e.target.value)} 
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-orange-400" 
+                placeholder="กรอกคะแนน (ถ้าไม่ทราบให้เว้นว่าง)" 
+              />
+              
+              {/* แสดงผลประเมินอัตโนมัติ */}
+              {adlScore !== '' && (
+                <div className="mt-3 flex items-center gap-2 text-sm font-bold">
+                  <span className="text-slate-500">ประเมินสถานะ:</span>
+                  {adlNum <= 4 ? (
+                    <span className="text-red-600 bg-red-100 px-3 py-1 rounded-lg">🔴 ติดเตียง (ต้องดูแลใกล้ชิด)</span>
+                  ) : adlNum <= 11 ? (
+                    <span className="text-orange-600 bg-orange-100 px-3 py-1 rounded-lg">🟠 ติดบ้าน (ช่วยเหลือตัวเองได้บ้าง)</span>
+                  ) : (
+                    <span className="text-green-600 bg-green-100 px-3 py-1 rounded-lg">🟢 ช่วยเหลือตัวเองได้ปกติ</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* 👇 Card 5 (หรือ 4): ความต้องการ (ใช้ Dynamic Numbering) 👇 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b pb-3">
-            <HeartHandshake className="w-5 h-5 text-sky-500" /> 4. ความต้องการรับความช่วยเหลือเร่งด่วน
+            <HeartHandshake className="w-5 h-5 text-sky-500" /> {needsAdlAssessment ? '5' : '4'}. ความต้องการรับความช่วยเหลือเร่งด่วน
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
             {NEED_OPTIONS.map((need) => (
@@ -339,20 +369,16 @@ export default function NewPersonPage() {
         </motion.div>
       </div>
 
-      {/* 👇 Custom Success Modal (Popup แจ้งเตือนเพิ่มข้อมูลสำเร็จ) 👇 */}
+      {/* Modal Success */}
       <AnimatePresence>
         {showSuccessModal && (
           <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setShowSuccessModal(false)}
           >
             <motion.div 
-              initial={{ scale: 0.8, opacity: 0, y: 20 }} 
-              animate={{ scale: 1, opacity: 1, y: 0 }} 
-              exit={{ scale: 0.8, opacity: 0, y: 20 }}
+              initial={{ scale: 0.8, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.8, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="bg-white rounded-[2rem] p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden border border-white/60"
               onClick={(e) => e.stopPropagation()}
@@ -368,17 +394,13 @@ export default function NewPersonPage() {
                 <span className="text-xs text-slate-400 mt-2 block">คุณสามารถกรอกข้อมูลคนต่อไปได้ทันที</span>
               </p>
               
-              <button 
-                onClick={() => setShowSuccessModal(false)} 
-                className="w-full py-3.5 bg-gradient-to-r from-pink-500 to-sky-500 hover:opacity-90 text-white rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
+              <button onClick={() => setShowSuccessModal(false)} className="w-full py-3.5 bg-gradient-to-r from-pink-500 to-sky-500 hover:opacity-90 text-white rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
                 <X className="w-5 h-5" /> ปิดหน้าต่าง
               </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
     </main>
   );
 }
