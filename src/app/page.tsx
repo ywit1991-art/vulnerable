@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { KeyRound, UserCircle, LogIn, AlertCircle } from 'lucide-react';
+import { KeyRound, UserCircle, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react'; // 👈 เพิ่ม Eye, EyeOff
 import { getUsers } from '@/lib/auth';
 import Image from 'next/image';
 
@@ -14,6 +14,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
+  // 👇 State สำหรับเปิด/ปิดการมองเห็นรหัสผ่าน 👇
+  const [showPassword, setShowPassword] = useState(false);
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [welcomeName, setWelcomeName] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -47,19 +50,15 @@ export default function LoginPage() {
       setWelcomeName(user.name);
       setShowSuccessModal(true);
       
-// ค้นหาบรรทัด setTimeout ใน handleLogin แล้วเปลี่ยนเป็นแบบนี้:
-
       setTimeout(() => {
-        const role = user.role?.toUpperCase(); // แปลงเป็นตัวใหญ่เพื่อป้องกันการพิมพ์ผิด
-        
-        if (role === 'ADMIN' || role === 'SUPERADMIN') {
-          window.location.replace('/admin'); // เด้งไปหน้าจัดการ
-        } else if (role === 'OFFICER' || role === 'MANAGER' || role === 'MUNICIPALITY') {
-          window.location.replace('/map'); // เด้งไปหน้าแผนที่
+        if (user.role === 'Admin') {
+          window.location.href = '/admin'; 
+        } else if (user.role === 'officer' || user.role === 'manager') {
+          window.location.href = '/map'; 
         } else {
-          window.location.replace('/person/new'); // เด้งไปหน้าฟอร์ม (trainee, staff, osm)
+          window.location.href = '/person/new'; 
         }
-      }, 2000); // ลดเวลาเหลือ 2 วินาที
+      }, 2500); 
     } catch (error) {
       setErrorMessage('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
       setShowErrorModal(true);
@@ -69,7 +68,9 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md relative z-10">
+        
         <div className="text-center mb-10 relative mt-4">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-tr from-pink-400 to-sky-400 rounded-full blur-[60px] opacity-40 animate-pulse pointer-events-none" />
           <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="relative w-32 h-32 bg-white rounded-full shadow-[0_0_40px_rgba(236,72,153,0.3)] p-0 mx-auto mb-6 flex items-center justify-center z-10 overflow-hidden">
@@ -89,13 +90,32 @@ export default function LoginPage() {
                 <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="กรอกชื่อผู้ใช้" className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-50 transition-all font-medium text-slate-800" />
               </div>
             </div>
+            
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">รหัสผ่าน</label>
               <div className="relative group">
                 <KeyRound className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500" />
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-50 transition-all font-medium text-slate-800" />
+                {/* 👇 เปลี่ยน type ตาม State และเพิ่ม pr-12 เพื่อเว้นที่ให้ไอคอนตา 👇 */}
+                <input 
+                  type={showPassword ? 'text' : 'password'} 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  className="w-full pl-10 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-50 transition-all font-medium text-slate-800" 
+                />
+                
+                {/* 👇 ปุ่มดวงตาสำหรับสลับการมองเห็นรหัสผ่าน 👇 */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-colors"
+                  title={showPassword ? "ซ่อนรหัสผ่าน" : "ดูรหัสผ่าน"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
+
             <button type="submit" disabled={isLoading} className="w-full h-14 mt-2 rounded-xl bg-gradient-to-r from-pink-500 to-sky-500 text-white font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
               {isLoading ? 'กำลังตรวจสอบ...' : <><LogIn className="w-5 h-5" /> เข้าสู่ระบบ</>}
             </button>

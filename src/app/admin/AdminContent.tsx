@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/components/ui/Navbar';
 import { getUsers, saveUser, deleteUser, type AppUser, type Role, checkAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
-import { Trash2, User, Loader2, ShieldAlert, History, CheckCircle2, X, Edit } from 'lucide-react'; // 👈 เพิ่ม Edit icon
+import { Trash2, User, Loader2, ShieldAlert, History, CheckCircle2, X, Edit } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -62,10 +62,8 @@ export default function AdminContent() {
     }
   };
 
-  // 👇 ฟังก์ชันสำหรับเปิด Modal แก้ไข 👇
   const handleEditClick = (userToEdit: AppUser) => {
     setFormData(userToEdit);
-    // แยกชื่อและนามสกุล (ถ้ามีช่องว่าง)
     const nameParts = userToEdit.name.split(' ');
     setFirstName(nameParts[0] || '');
     setLastName(nameParts.slice(1).join(' ') || '');
@@ -152,18 +150,22 @@ export default function AdminContent() {
                 </div>
                 
                 <div className="flex justify-between items-center border-t border-slate-50 pt-3 mt-1">
-                  {/* 👇 แสดงรหัสผ่านชัดเจน 👇 */}
                   <span className="text-xs text-slate-500">
                     รหัสผ่าน: <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{u.password}</span>
                   </span>
+                  
                   <div className="flex items-center gap-1.5">
-                    {/* 👇 เพิ่มปุ่มแก้ไข 👇 */}
+                    {/* 👇 แสดงปุ่มแก้ไขเฉพาะ User ที่ไม่ใช่ Admin 👇 */}
                     <button onClick={() => handleEditClick(u)} className="text-sky-600 bg-sky-50 hover:bg-sky-100 p-1.5 rounded-lg transition-colors shrink-0" title="แก้ไข">
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDelete(u.id!, u.username)} className="text-red-500 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5" title="ลบ">
-                      <Trash2 className="w-4 h-4" /> 
-                    </button>
+                    
+                    {/* 👇 ซ่อนปุ่มลบถ้าผู้ใช้คือ 'Admin' 👇 */}
+                    {u.username !== 'Admin' && (
+                      <button onClick={() => handleDelete(u.id!, u.username)} className="text-red-500 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5" title="ลบ">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -226,7 +228,6 @@ export default function AdminContent() {
                 
                 <div>
                   <label className="text-sm font-medium text-slate-700">รหัสผ่าน</label>
-                  {/* 👇 เปลี่ยน type เป็น text เพื่อให้เห็นพาสเวิร์ด 👇 */}
                   <input type="text" value={formData.password || ''} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-pink-400 font-mono" placeholder="ตั้งรหัสผ่าน..." />
                 </div>
 
